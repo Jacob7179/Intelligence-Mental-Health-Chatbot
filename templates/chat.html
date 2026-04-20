@@ -551,7 +551,7 @@
             max-height: 120px;
         }
 
-        .send-btn {
+        .send-btn, .stop-btn {
             background: transparent;
             border: none;
             cursor: pointer;
@@ -560,11 +560,18 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #667eea;
             transition: all 0.2s;
         }
 
-        .send-btn:hover {
+        .send-btn {
+            color: #667eea;
+        }
+
+        .stop-btn {
+            color: #e34d4d;
+        }
+
+        .send-btn:hover, .stop-btn:hover {
             background: #f0f0f4;
             transform: scale(1.05);
         }
@@ -796,6 +803,8 @@
     let currentUsername = '';
     let currentUserEmail = '';
     let isSidebarCollapsed = false;
+    let currentAbortController = null;
+    let isGeneratingResponse = false;
     
     const emotionIcons = { sad: '😢', happy: '😊', angry: '😠', anxious: '😰', fear: '😨', surprise: '😲', love: '❤️', neutral: '😐' };
 
@@ -1073,6 +1082,9 @@
     }
 
     async function startNewChat() {
+        // Cancel any ongoing response generation
+        stopResponseGeneration();
+        
         currentConversationId = null;
         document.getElementById('currentChatTitle').innerText = 'New conversation';
         document.getElementById('chatMessages').innerHTML = '';
@@ -1084,6 +1096,10 @@
 
     async function deleteConversation(convId) {
         if (!confirm('Delete this conversation?')) return;
+        
+        // Cancel any ongoing response generation
+        stopResponseGeneration();
+        
         const res = await fetch(`/api/conversation/${convId}/delete`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
@@ -1122,22 +1138,118 @@
         scrollToBottom();
     }
 
+    // Function to replace send button with stop button
+    function showStopButton() {
+        const sendBtn = document.getElementById('sendBtn');
+        const inputWrapper = document.querySelector('.input-wrapper');
+        
+        // Create stop button if it doesn't exist
+        let stopBtn = document.getElementById('stopBtn');
+        if (!stopBtn) {
+            stopBtn = document.createElement('button');
+            stopBtn.id = 'stopBtn';
+            stopBtn.className = 'stop-btn';
+            stopBtn.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" stroke="none"/>
+                </svg>
+            `;
+            stopBtn.onclick = stopResponseGeneration;
+        }
+        
+        // Hide send button, show stop button
+        sendBtn.style.display = 'none';
+        if (!inputWrapper.contains(stopBtn)) {
+            inputWrapper.appendChild(stopBtn);
+        }
+        stopBtn.style.display = 'flex';
+    }
+    
+    // Function to restore send button
+    function showSendButton() {
+        const sendBtn = document.getElementById('sendBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        
+        sendBtn.style.display = 'flex';
+        if (stopBtn) {
+            stopBtn.style.display = 'none';
+        }
+    }
+    
+    // Function to stop response generation
+    function stopResponseGeneration() {
+        if (currentAbortController) {
+            currentAbortController.abort();
+            currentAbortController = null;
+        }
+        
+        isGeneratingResponse = false;
+        showSendButton();
+        
+        // Hide typing indicator
+        const typingIndicator = document.getElementById('typingIndicator');
+        typingIndicator.style.display = 'none';
+        
+        // Enable textarea
+        const textarea = document.getElementById('userInput');
+        textarea.disabled = false;
+        textarea.placeholder = "Message AI counselor...";
+        
+        showToast('Response generation stopped');
+    }
+
     async function sendMessage() {
+        // Don't send if already generating
+        if (isGeneratingResponse) {
+            showToast('Please wait for the current response to complete or stop it');
+            return;
+        }
+        
         const input = document.getElementById('userInput');
         const msg = input.value.trim();
         if (!msg) return;
-        addMessage(msg, 'user', null, null, null);
+        
+        // Clear input and disable while processing
         input.value = '';
         input.style.height = 'auto';
-        document.getElementById('typingIndicator').style.display = 'flex';
+        
+        // Add user message immediately
+        addMessage(msg, 'user', null, null, null);
+        
+        // Set generating state
+        isGeneratingResponse = true;
+        
+        // Show stop button instead of send button
+        showStopButton();
+        
+        // Disable textarea while generating
+        input.disabled = true;
+        input.placeholder = "Waiting for response...";
+        
+        // Show typing indicator
+        const typingIndicator = document.getElementById('typingIndicator');
+        typingIndicator.style.display = 'flex';
+        
+        // Create abort controller for this request
+        currentAbortController = new AbortController();
+        
         try {
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: msg, conversation_id: currentConversationId })
+                body: JSON.stringify({ message: msg, conversation_id: currentConversationId }),
+                signal: currentAbortController.signal
             });
+            
+            // Check if request was aborted
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            
             const data = await res.json();
-            if (res.ok) {
+            
+            // Only process if still generating (not cancelled)
+            if (isGeneratingResponse) {
                 const wasNew = !currentConversationId;
                 if (!currentConversationId) {
                     currentConversationId = data.conversation_id;
@@ -1145,22 +1257,70 @@
                     updateUrlWithConversationId(currentConversationId);
                     loadConversations();
                 }
+                
                 addMessage(data.response, 'bot', data.emotion, data.confidence, null);
+                
                 if (wasNew) loadConversations();
-                else {
-                    loadConversations();
+                else loadConversations();
+            }
+        } catch(e) {
+            if (e.name === 'AbortError') {
+                console.log('Request was cancelled by user');
+                // Don't show error toast for user-initiated cancellation
+            } else {
+                console.error('Error:', e);
+                if (isGeneratingResponse) {
+                    addMessage('Network error or service unavailable. Please try again.', 'bot', null, null, null);
+                    showToast('Failed to get response. Please check your connection.');
                 }
-            } else addMessage('Error: Could not get response', 'bot', null, null, null);
-        } catch(e) { addMessage('Network error. Please try again.', 'bot', null, null, null); }
-        finally { document.getElementById('typingIndicator').style.display = 'none'; scrollToBottom(); }
+            }
+        } finally {
+            // Reset state
+            isGeneratingResponse = false;
+            currentAbortController = null;
+            
+            // Hide typing indicator
+            typingIndicator.style.display = 'none';
+            
+            // Restore send button
+            showSendButton();
+            
+            // Re-enable textarea
+            input.disabled = false;
+            input.placeholder = "Message AI counselor...";
+            input.focus();
+            
+            scrollToBottom();
+        }
     }
 
-    function scrollToBottom() { const msgs = document.getElementById('chatMessages'); msgs.scrollTop = msgs.scrollHeight; }
-    function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
-    async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login'; }
+    function scrollToBottom() { 
+        const msgs = document.getElementById('chatMessages'); 
+        msgs.scrollTop = msgs.scrollHeight; 
+    }
+    
+    function escapeHtml(str) { 
+        return str.replace(/[&<>]/g, function(m){
+            if(m==='&') return '&amp;'; 
+            if(m==='<') return '&lt;'; 
+            if(m==='>') return '&gt;'; 
+            return m;
+        }); 
+    }
+    
+    async function logout() { 
+        // Cancel any ongoing response
+        stopResponseGeneration();
+        await fetch('/api/logout', { method: 'POST' }); 
+        window.location.href = '/login'; 
+    }
 
     async function switchAPI(api) {
-        await fetch('/api/switch-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api }) });
+        await fetch('/api/switch-api', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ api }) 
+        });
         document.querySelectorAll('.api-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.api-btn[data-api="${api}"]`).classList.add('active');
         showToast(`Switched to ${api.toUpperCase()}`);
@@ -1174,12 +1334,28 @@
         });
     }
 
+    // Event listeners
     document.getElementById('sendBtn').addEventListener('click', sendMessage);
+    
     const textarea = document.getElementById('userInput');
-    textarea.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px'; });
-    textarea.addEventListener('keypress', (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+    textarea.addEventListener('input', function() { 
+        this.style.height = 'auto'; 
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px'; 
+    });
+    
+    textarea.addEventListener('keypress', (e) => { 
+        if(e.key === 'Enter' && !e.shiftKey && !isGeneratingResponse) { 
+            e.preventDefault(); 
+            sendMessage(); 
+        } 
+    });
+    
     document.querySelectorAll('.api-btn').forEach(btn => btn.addEventListener('click', () => switchAPI(btn.dataset.api)));
-    window.addEventListener('popstate', async () => { const id = getUrlParameter('conversation_id'); id ? await loadConversation(id, false) : startNewChat(); });
+    
+    window.addEventListener('popstate', async () => { 
+        const id = getUrlParameter('conversation_id'); 
+        id ? await loadConversation(id, false) : startNewChat(); 
+    });
     
     window.addEventListener('resize', function() {
         if (window.innerWidth > 768) {

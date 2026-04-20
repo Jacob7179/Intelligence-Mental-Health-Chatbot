@@ -457,7 +457,7 @@ def generate_response_with_gemini(user_input, emotion, confidence):
     """Generate response using Google's Gemini API"""
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""You are a compassionate mental health counselor. The user is feeling {emotion} (confidence: {confidence:.2%}). 
         User said: "{user_input}"
