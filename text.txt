@@ -1,0 +1,1 @@
+pip install flask flask-cors torch transformers scikit-learn python-dotenv google-generativeai openai pymongo
