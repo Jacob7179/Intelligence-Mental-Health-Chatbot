@@ -406,38 +406,6 @@
             color: transparent;
         }
 
-        .chat-info {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .api-selector {
-            display: flex;
-            gap: 8px;
-            background: #f7f7f8;
-            padding: 4px;
-            border-radius: 30px;
-        }
-
-        .api-btn {
-            border: none;
-            background: transparent;
-            padding: 6px 14px;
-            border-radius: 30px;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #5e5e66;
-        }
-
-        .api-btn.active {
-            background: white;
-            color: #667eea;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
         /* Chat messages */
         .chat-messages {
             flex: 1;
@@ -760,13 +728,6 @@
             <button class="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
             <div class="chat-title-section">
                 <h2 id="currentChatTitle">New conversation</h2>
-            </div>
-            <div class="chat-info">
-                <div class="api-selector" id="apiSelector">
-                    <button class="api-btn" data-api="gemini">Gemini</button>
-                    <button class="api-btn" data-api="deepseek">DeepSeek</button>
-                    <button class="api-btn" data-api="openai">OpenAI</button>
-                </div>
             </div>
         </div>
 
@@ -1315,25 +1276,6 @@
         window.location.href = '/login'; 
     }
 
-    async function switchAPI(api) {
-        await fetch('/api/switch-api', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ api }) 
-        });
-        document.querySelectorAll('.api-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelector(`.api-btn[data-api="${api}"]`).classList.add('active');
-        showToast(`Switched to ${api.toUpperCase()}`);
-    }
-
-    async function loadAPIStatus() {
-        const res = await fetch('/api/get-api-status');
-        const data = await res.json();
-        document.querySelectorAll('.api-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.api === data.current_api);
-        });
-    }
-
     // Event listeners
     document.getElementById('sendBtn').addEventListener('click', sendMessage);
     
@@ -1349,8 +1291,6 @@
             sendMessage(); 
         } 
     });
-    
-    document.querySelectorAll('.api-btn').forEach(btn => btn.addEventListener('click', () => switchAPI(btn.dataset.api)));
     
     window.addEventListener('popstate', async () => { 
         const id = getUrlParameter('conversation_id'); 
@@ -1371,7 +1311,6 @@
         if (await checkAuth()) {
             loadSidebarState();
             await loadConversations();
-            await loadAPIStatus();
             const urlId = getUrlParameter('conversation_id');
             if (urlId) await loadConversation(urlId);
             else startNewChat();

@@ -113,12 +113,7 @@ label_encoder = None
 
 # API Configuration
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-DEFAULT_API = os.getenv('DEFAULT_API', 'gemini')
-
-# Current API selection (can be changed at runtime)
-current_api = DEFAULT_API
+current_api = DEFAULT_API = 'gemini'
 
 # Device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -232,63 +227,106 @@ def enhanced_keyword_detection(text):
     """Enhanced keyword-based emotion detection with scoring system"""
     text_lower = text.lower()
     
+    # Check for very short positive responses first
+    short_positive = ['good', 'great', 'fine', 'ok', 'okay', 'im good', "i'm good", 'doing good', 'feeling good']
+    if text_lower in short_positive:
+        return 'happy', 0.95
+    
     # Comprehensive emotion keywords with weights
     emotion_keywords = {
         'happy': {
-            'primary': ['happy', 'joy', 'glad', 'wonderful', 'great', 'excited', 'amazing', 
-                       'awesome', 'fantastic', 'won', 'champion', 'victory', 'success', 'celebrate',
-                       'blessed', 'grateful', 'thankful', 'delighted', 'pleased', 'thrilled',
-                       'ecstatic', 'overjoyed', 'elated', 'cheerful', 'optimistic', 'bright',
-                       'sunny', 'smile', 'laugh', 'fun', 'enjoy', 'love life', 'good day',
-                       'feel good', 'looking forward', 'can\'t wait', 'so happy', 'very happy'],
+            'primary': ['happy', 'joy', 'glad', 'wonderful', 'great', 'excited', 'amazing',
+                    'awesome', 'fantastic', 'won', 'champion', 'victory', 'success', 'celebrate',
+                    'blessed', 'grateful', 'thankful', 'delighted', 'pleased', 'thrilled',
+                    'ecstatic', 'overjoyed', 'elated', 'cheerful', 'optimistic', 'bright',
+                    'sunny', 'smile', 'laugh', 'fun', 'enjoy', 'love life', 'good day', 'good',
+                    'feel good', 'looking forward', 'can\'t wait', 'so happy', 'very happy',
+                    'bliss', 'blissful', 'content', 'satisfied', 'jubilant', 'exhilarated',
+                    'radiant', 'upbeat', 'joyful', 'playful', 'hopeful', 'lighthearted',
+                    'on cloud nine', 'over the moon', 'walking on air', 'in high spirits',
+                    'made my day', 'best day ever', 'living the dream', 'couldn\'t be happier'],
             'weight': 2
         },
         'sad': {
             'primary': ['sad', 'depressed', 'unhappy', 'down', 'cry', 'lonely', 'hurt', 'grief',
-                       'heartbroken', 'miserable', 'devastated', 'hopeless', 'despair', 'gloomy',
-                       'tears', 'weep', 'sorrow', 'pain', 'suffering', 'empty', 'lost', 'alone',
-                       'isolated', 'rejected', 'abandoned', 'worthless', 'useless', 'failure',
-                       'so sad', 'very sad', 'feeling sad'],
+                    'heartbroken', 'miserable', 'devastated', 'hopeless', 'despair', 'gloomy',
+                    'tears', 'weep', 'sorrow', 'pain', 'suffering', 'empty', 'lost', 'alone',
+                    'isolated', 'rejected', 'abandoned', 'worthless', 'useless', 'failure',
+                    'so sad', 'very sad', 'feeling sad',
+                    'gloom', 'melancholy', 'mourn', 'mourning', 'anguish', 'downcast',
+                    'dismal', 'bleak', 'heavy heart', 'heartache', 'broken', 'crushed',
+                    'defeated', 'numb', 'withdrawn', 'tearful', 'weepy', 'blue', 'feeling blue',
+                    'in a funk', 'low', 'rough day', 'can\'t stop crying', 'no energy',
+                    'what\'s the point', 'falling apart'],
             'weight': 2
         },
         'angry': {
             'primary': ['angry', 'mad', 'frustrated', 'annoyed', 'furious', 'rage', 'hate',
-                       'irritated', 'upset', 'bitter', 'resentful', 'hostile', 'aggressive',
-                       'enraged', 'livid', 'outraged', 'fuming', 'explode', 'fight', 'argue',
-                       'yell', 'scream', 'shout', 'curse', 'damn', 'hateful', 'vengeful'],
+                    'irritated', 'upset', 'bitter', 'resentful', 'hostile', 'aggressive',
+                    'enraged', 'livid', 'outraged', 'fuming', 'explode', 'fight', 'argue',
+                    'yell', 'scream', 'shout', 'curse', 'damn', 'hateful', 'vengeful',
+                    'exasperated', 'infuriated', 'incensed', 'indignant', 'irate', 'seething',
+                    'wrath', 'wrathful', 'cross', 'grumpy', 'cranky', 'pissed', 'pissed off',
+                    'fed up', 'sick of', 'boiling', 'heated', 'storming', 'bitter',
+                    'grudge', 'vengeance', 'want to scream', 'seeing red', 'blowing off steam'],
             'weight': 2
         },
         'anxious': {
             'primary': ['anxious', 'nervous', 'worried', 'stressed', 'panic', 'overwhelmed',
-                       'uneasy', 'restless', 'tense', 'apprehensive', 'dread', 'fearful',
-                       'scared', 'terrified', 'frightened', 'horrified', 'alarmed', 'panicky',
-                       'jittery', 'on edge', 'butterflies', 'heart racing', 'sweating',
-                       'worry', 'concerned', 'unease'],
+                    'uneasy', 'restless', 'tense', 'apprehensive', 'dread', 'fearful',
+                    'scared', 'terrified', 'frightened', 'horrified', 'alarmed', 'panicky',
+                    'jittery', 'on edge', 'butterflies', 'heart racing', 'sweating',
+                    'worry', 'concerned', 'unease',
+                    'distressed', 'agitated', 'frazzled', 'rattled', 'high-strung',
+                    'keyed up', 'wound up', 'freaked out', 'freaking out', 'losing sleep',
+                    'racing thoughts', 'can\'t breathe', 'impending doom', 'worst case scenario',
+                    'what if', 'overthinking', 'analysis paralysis', 'second guessing',
+                    'biting nails', 'pacing', 'dreading tomorrow'],
             'weight': 2
         },
         'fear': {
             'primary': ['scared', 'afraid', 'terrified', 'fear', 'horror', 'nightmare',
-                       'spooked', 'petrified', 'panicked', 'dreading', 'ominous', 'threatened',
-                       'danger', 'unsafe', 'vulnerable', 'exposed', 'helpless', 'trapped',
-                       'frightened', 'fearful'],
+                    'spooked', 'petrified', 'panicked', 'dreading', 'ominous', 'threatened',
+                    'danger', 'unsafe', 'vulnerable', 'exposed', 'helpless', 'trapped',
+                    'frightened', 'fearful',
+                    'paranoid', 'cowering', 'trembling', 'shaking', 'frozen', 'paralyzed',
+                    'horrifying', 'chilling', 'menacing', 'sinister', 'unease', 'creepy',
+                    'haunted', 'terrifying', 'panic-stricken', 'hysterical', 'phobia',
+                    'scared stiff', 'scared to death', 'heart in throat', 'can\'t move',
+                    'running scared', 'hiding', 'bad feeling', 'something bad will happen'],
             'weight': 2
         },
         'love': {
             'primary': ['love', 'adore', 'care', 'passion', 'affection', 'fond', 'cherish',
-                       'treasure', 'devoted', 'attached', 'romantic', 'heart', 'sweet',
-                       'kindness', 'compassion', 'empathy', 'warmth', 'caring', 'tender',
-                       'i love', 'loving'],
+                    'treasure', 'devoted', 'attached', 'romantic', 'heart', 'sweet',
+                    'kindness', 'compassion', 'empathy', 'warmth', 'caring', 'tender',
+                    'i love', 'loving',
+                    'infatuated', 'enamored', 'smitten', 'captivated', 'besotted',
+                    'worship', 'admire', 'respect deeply', 'care deeply', 'appreciate',
+                    'close to my heart', 'mean the world', 'my everything', 'forever',
+                    'soulmate', 'partner', 'my rock', 'supportive', 'gentle', 'thoughtful',
+                    'cuddle', 'hug', 'kiss', 'holding hands', 'quality time'],
             'weight': 2
         },
         'surprise': {
             'primary': ['surprised', 'shocked', 'astonished', 'amazed', 'stunned', 'speechless',
-                       'unexpected', 'startled', 'floored', 'dumbfounded', 'bewildered',
-                       'mind blown', 'unbelievable', 'incredible', 'shocking', 'sudden'],
+                    'unexpected', 'startled', 'floored', 'dumbfounded', 'bewildered',
+                    'mind blown', 'unbelievable', 'incredible', 'shocking', 'sudden',
+                    'astounded', 'flabbergasted', 'dazzled', 'awestruck', 'thunderstruck',
+                    'jaw dropped', 'caught off guard', 'out of nowhere', 'bolt from the blue',
+                    'turn of events', 'whirlwind', 'who would have thought', 'no way',
+                    'are you serious', 'stop it', 'you\'re kidding', 'impossible',
+                    'how is that possible', 'staggering', 'mind-boggling'],
             'weight': 1.5
         },
         'neutral': {
             'primary': ['okay', 'fine', 'alright', 'so-so', 'nothing special', 'as usual',
-                       'normal', 'regular', 'typical', 'standard', 'common'],
+                    'normal', 'regular', 'typical', 'standard', 'common',
+                    'meh', 'decent', 'moderate', 'average', 'mediocre', 'unremarkable',
+                    'ordinary', 'commonplace', 'everyday', 'neutral', 'indifferent',
+                    'unbothered', 'whatever', 'don\'t care', 'no strong feelings',
+                    'go with the flow', 'same old', 'nothing new', 'business as usual',
+                    'just another day', 'nothing to report', 'could be worse'],
             'weight': 1
         }
     }
@@ -358,13 +396,27 @@ def detect_emotion(text):
     clean_text = preprocess_text(text)
     text_lower = clean_text.lower()
     
-    # PRIORITY 1: Use enhanced keyword detection (more reliable for specific emotions)
-    keyword_emotion, keyword_confidence = enhanced_keyword_detection(clean_text)
+    # PRIORITY 0: Check for positive affirmations FIRST (before anything else)
+    positive_affirmations = [
+        r'\bgood\b', r'\bgreat\b', r'\bfine\b', r'\bokay\b', r'\bok\b', r'\bhi\b',
+        r'\bhappy\b', r'\bglad\b', r'\bjoy\b', r'\bwonderful\b', r'\bawesome\b' r'\bgreeting\b',
+        r'\bdoing well\b', r'\bfeeling good\b', r"\bm good\b", r"\bm fine\b"
+    ]
+    
+    for pattern in positive_affirmations:
+        if re.search(pattern, text_lower):
+            # Check if it's NOT negated
+            if not re.search(rf'not\s+{pattern}|n\'t\s+{pattern}', text_lower):
+                return 'happy', 0.95
     
     # Special case: "happy" detection - if user explicitly says "happy", it should be HAPPY
     if re.search(r'\bhappy\b', text_lower) or re.search(r'\bglad\b', text_lower) or re.search(r'\bjoy\b', text_lower):
         if 'sad' not in text_lower and 'unhappy' not in text_lower:
             return 'happy', 0.95
+    
+    # Special case: "good" or similar short positive responses
+    if text_lower in ['good', 'great', 'fine', 'ok', 'okay', 'doing good', 'im good', "i'm good", 'feeling good']:
+        return 'happy', 0.95
     
     # Special case: "sad" detection
     if re.search(r'\bsad\b', text_lower) or re.search(r'\bdepressed\b', text_lower):
@@ -381,6 +433,9 @@ def detect_emotion(text):
     # Special case: "love" detection
     if re.search(r'\blove\b', text_lower) or re.search(r'\badore\b', text_lower):
         return 'love', 0.95
+    
+    # PRIORITY 1: Use enhanced keyword detection (more reliable for specific emotions)
+    keyword_emotion, keyword_confidence = enhanced_keyword_detection(clean_text)
     
     # If keyword confidence is high (>0.7), use keyword detection
     if keyword_confidence > 0.7:
@@ -469,70 +524,6 @@ def generate_response_with_gemini(user_input, emotion, confidence):
         
     except Exception as e:
         print(f"Gemini API error: {e}")
-        return None
-
-def generate_response_with_deepseek(user_input, emotion, confidence):
-    """Generate response using DeepSeek API"""
-    try:
-        url = "https://api.deepseek.com/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        data = {
-            "model": "deepseek-chat",
-            "messages": [
-                {
-                    "role": "system", 
-                    "content": f"You are a compassionate mental health counselor. The user is feeling {emotion}."
-                },
-                {
-                    "role": "user", 
-                    "content": user_input
-                }
-            ],
-            "temperature": 0.7,
-            "max_tokens": 150
-        }
-        
-        response = requests.post(url, headers=headers, json=data, timeout=10)
-        if response.status_code == 200:
-            result = response.json()
-            return result['choices'][0]['message']['content'].strip()
-        else:
-            print(f"DeepSeek API error: {response.status_code}")
-            return None
-            
-    except Exception as e:
-        print(f"DeepSeek API error: {e}")
-        return None
-
-def generate_response_with_openai(user_input, emotion, confidence):
-    """Generate response using OpenAI API"""
-    try:
-        client = OpenAI(api_key=OPENAI_API_KEY)
-        
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system", 
-                    "content": f"You are a compassionate mental health counselor. The user is feeling {emotion}."
-                },
-                {
-                    "role": "user", 
-                    "content": user_input
-                }
-            ],
-            temperature=0.7,
-            max_tokens=150
-        )
-        
-        return response.choices[0].message.content.strip()
-        
-    except Exception as e:
-        print(f"OpenAI API error: {e}")
         return None
 
 def generate_response_with_fallback(user_input, emotion, confidence):
@@ -777,10 +768,6 @@ def generate_response(user_input, emotion, confidence):
     
     if current_api == 'gemini' and GEMINI_API_KEY:
         response = generate_response_with_gemini(user_input, emotion, confidence)
-    elif current_api == 'deepseek' and DEEPSEEK_API_KEY:
-        response = generate_response_with_deepseek(user_input, emotion, confidence)
-    elif current_api == 'openai' and OPENAI_API_KEY:
-        response = generate_response_with_openai(user_input, emotion, confidence)
     
     # Fallback to template if API fails
     if not response:
@@ -799,23 +786,7 @@ emotion_loaded = load_emotion_model()
 # Initialize MongoDB
 mongodb_connected = init_mongodb()
 
-# Check API availability
-apis_available = []
-if GEMINI_API_KEY:
-    apis_available.append('gemini')
-if DEEPSEEK_API_KEY:
-    apis_available.append('deepseek')
-if OPENAI_API_KEY:
-    apis_available.append('openai')
-
-print(f"\n🔑 Available APIs: {', '.join(apis_available) if apis_available else 'None'}")
-print(f"🎯 Current API: {current_api}")
-print(f"📊 Emotion model: {'✓ Loaded' if emotion_loaded else '⚠️ Using keyword-based detection'}")
-print(f"💾 Storage: {'✓ MongoDB Connected' if mongodb_connected else '⚠️ Using in-memory storage (data will not persist after restart)'}")
-
-if not apis_available:
-    print("\n⚠️ WARNING: No API keys found! Please add at least one API key to .env file")
-    print("   The chatbot will use fallback template responses.")
+print(f"\n🔑 Gemini API: {'✓ Configured' if GEMINI_API_KEY else '⚠️ Not configured'}")
 
 print("\n" + "="*60)
 print("SERVER STARTING...")
@@ -1122,7 +1093,7 @@ def chat():
         print(f"🎭 Detected emotion: {emotion.upper()} (confidence: {confidence:.2%})")
         
         # Generate response using API
-        api_used = current_api if (GEMINI_API_KEY or DEEPSEEK_API_KEY or OPENAI_API_KEY) else 'fallback'
+        api_used = 'gemini' if GEMINI_API_KEY else 'fallback'
         response = generate_response(user_message, emotion, confidence)
         print(f"🤖 Response: {response[:150]}...")
         
@@ -1154,44 +1125,13 @@ def chat():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/switch-api', methods=['POST'])
-@login_required
-def switch_api():
-    """Endpoint to switch between different APIs"""
-    global current_api
-    
-    data = request.json
-    new_api = data.get('api', '').lower()
-    
-    if new_api in ['gemini', 'deepseek', 'openai']:
-        # Check if API key exists
-        if new_api == 'gemini' and not GEMINI_API_KEY:
-            return jsonify({'error': 'Gemini API key not configured'}), 400
-        elif new_api == 'deepseek' and not DEEPSEEK_API_KEY:
-            return jsonify({'error': 'DeepSeek API key not configured'}), 400
-        elif new_api == 'openai' and not OPENAI_API_KEY:
-            return jsonify({'error': 'OpenAI API key not configured'}), 400
-        
-        current_api = new_api
-        return jsonify({
-            'status': 'success',
-            'current_api': current_api,
-            'message': f'Switched to {current_api.upper()} API'
-        })
-    else:
-        return jsonify({'error': 'Invalid API. Use gemini, deepseek, or openai'}), 400
-
 @app.route('/api/get-api-status', methods=['GET'])
 @login_required
 def get_api_status():
-    """Get current API status and available APIs"""
+    """Get current API status"""
     return jsonify({
-        'current_api': current_api,
-        'available_apis': {
-            'gemini': bool(GEMINI_API_KEY),
-            'deepseek': bool(DEEPSEEK_API_KEY),
-            'openai': bool(OPENAI_API_KEY)
-        },
+        'current_api': 'gemini',
+        'gemini_configured': bool(GEMINI_API_KEY),
         'emotion_model_loaded': emotion_loaded,
         'mongodb_connected': is_mongodb_connected()
     })
