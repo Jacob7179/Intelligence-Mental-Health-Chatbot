@@ -611,7 +611,7 @@ def is_mongodb_connected():
     return mongo_client is not None and users_collection is not None
 
 def save_conversation_to_db(user_id, conversation_id, title=None):
-    """Create or update conversation record"""
+    """Create or update conversation record (now with rating field)"""
     if is_mongodb_connected():
         try:
             existing = conversations_collection.find_one({
@@ -626,7 +626,8 @@ def save_conversation_to_db(user_id, conversation_id, title=None):
                     "title": title or "New Conversation",
                     "created_at": datetime.utcnow(),
                     "updated_at": datetime.utcnow(),
-                    "message_count": 0
+                    "message_count": 0,
+                    "rating": None           # <-- added rating field
                 }
                 conversations_collection.insert_one(conversation_doc)
             
@@ -645,7 +646,8 @@ def save_conversation_to_db(user_id, conversation_id, title=None):
             "title": title or "New Conversation",
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
-            "message_count": 0
+            "message_count": 0,
+            "rating": None                 # <-- added rating field
         }
     
     return conversation_id
@@ -730,7 +732,7 @@ def get_conversation_messages(conversation_id, limit=100):
     return []
 
 def get_user_conversations(user_id, limit=50):
-    """Get all conversations for a user"""
+    """Get all conversations for a user (includes rating)"""
     if is_mongodb_connected():
         try:
             conversations = list(conversations_collection.find(
@@ -743,6 +745,9 @@ def get_user_conversations(user_id, limit=50):
                     conv['created_at'] = conv['created_at'].isoformat()
                 if isinstance(conv['updated_at'], datetime):
                     conv['updated_at'] = conv['updated_at'].isoformat()
+                # rating field may be absent for old conversations – add default None
+                if 'rating' not in conv:
+                    conv['rating'] = None
             
             return conversations
         except Exception as e:
@@ -932,6 +937,77 @@ def check_auth():
         })
     return jsonify({'authenticated': False})
 
+# ------------------- RATING SYSTEM ENDPOINTS -------------------
+@app.route('/api/conversation/<conversation_id>/rating', methods=['GET'])
+@login_required
+def get_conversation_rating(conversation_id):
+    """Get the rating (1-5) for a conversation, or null if not rated"""
+    try:
+        # Verify ownership
+        conv = None
+        if is_mongodb_connected():
+            conv = conversations_collection.find_one({
+                "conversation_id": conversation_id,
+                "user_id": session['user_id']
+            })
+        else:
+            if session['user_id'] in IN_MEMORY_CONVERSATIONS:
+                conv = IN_MEMORY_CONVERSATIONS[session['user_id']].get(conversation_id)
+        
+        if not conv:
+            return jsonify({'error': 'Conversation not found'}), 404
+        
+        rating = conv.get('rating')   # can be None or int 1-5
+        return jsonify({'success': True, 'rating': rating})
+    
+    except Exception as e:
+        print(f"Error getting rating: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/conversation/<conversation_id>/rating', methods=['POST'])
+@login_required
+def set_conversation_rating(conversation_id):
+    """Set or update the rating (1-5) for a conversation"""
+    try:
+        data = request.json
+        rating = data.get('rating')
+        
+        # Validate rating
+        if rating is None or not isinstance(rating, int) or rating < 1 or rating > 5:
+            return jsonify({'error': 'Rating must be an integer between 1 and 5'}), 400
+        
+        # Verify ownership and update
+        if is_mongodb_connected():
+            result = conversations_collection.update_one(
+                {
+                    "conversation_id": conversation_id,
+                    "user_id": session['user_id']
+                },
+                {"$set": {"rating": rating, "updated_at": datetime.utcnow()}}
+            )
+            if result.matched_count == 0:
+                return jsonify({'error': 'Conversation not found'}), 404
+        else:
+            # In-memory fallback
+            if session['user_id'] in IN_MEMORY_CONVERSATIONS:
+                conv = IN_MEMORY_CONVERSATIONS[session['user_id']].get(conversation_id)
+                if conv:
+                    conv['rating'] = rating
+                    conv['updated_at'] = datetime.utcnow()
+                else:
+                    return jsonify({'error': 'Conversation not found'}), 404
+            else:
+                return jsonify({'error': 'Conversation not found'}), 404
+        
+        return jsonify({'success': True, 'rating': rating})
+    
+    except Exception as e:
+        print(f"Error setting rating: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# ---------- END RATING ENDPOINTS ----------
+
 @app.route('/api/conversations', methods=['GET'])
 @login_required
 def get_conversations():
@@ -978,7 +1054,8 @@ def get_conversation(conversation_id):
                 'title': conv.get('title', 'Conversation'),
                 'created_at': conv['created_at'].isoformat() if isinstance(conv['created_at'], datetime) else conv['created_at'],
                 'updated_at': conv['updated_at'].isoformat() if isinstance(conv['updated_at'], datetime) else conv['updated_at'],
-                'message_count': conv.get('message_count', 0)
+                'message_count': conv.get('message_count', 0),
+                'rating': conv.get('rating')   # <-- include rating in response
             },
             'messages': messages or []
         })
@@ -1258,6 +1335,7 @@ def admin_get_all_conversations():
                     'username': user['username'] if user else 'Unknown',
                     'title': conv.get('title', 'Conversation'),
                     'message_count': conv.get('message_count', 0),
+                    'rating': conv.get('rating'),
                     'created_at': conv['created_at'].isoformat() if isinstance(conv.get('created_at'), datetime) else conv.get('created_at'),
                     'updated_at': conv['updated_at'].isoformat() if isinstance(conv.get('updated_at'), datetime) else conv.get('updated_at')
                 })
@@ -1273,6 +1351,7 @@ def admin_get_all_conversations():
                         'username': username,
                         'title': conv.get('title', 'Conversation'),
                         'message_count': conv.get('message_count', 0),
+                        'rating': conv.get('rating'),
                         'created_at': conv['created_at'].isoformat() if isinstance(conv.get('created_at'), datetime) else conv.get('created_at'),
                         'updated_at': conv['updated_at'].isoformat() if isinstance(conv.get('updated_at'), datetime) else conv.get('updated_at')
                     })
@@ -1353,7 +1432,8 @@ def admin_get_conversation_details(conversation_id):
                 'user_id': conversation['user_id'],
                 'username': user.get('username', 'Unknown') if 'user' in locals() else 'Unknown',
                 'title': conversation.get('title', 'Conversation'),
-                'message_count': conversation.get('message_count', 0)
+                'message_count': conversation.get('message_count', 0),
+                'rating': conversation.get('rating')
             },
             'messages': messages
         })

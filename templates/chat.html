@@ -381,6 +381,18 @@
             gap: 12px;
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
         .mobile-menu-btn {
             display: none;
             background: none;
@@ -404,6 +416,80 @@
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+        }
+
+        /* Rating Button */
+        .rating-btn {
+            background: transparent;
+            border: 1px solid #e2e2e6;
+            border-radius: 30px;
+            padding: 6px 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6c6c72;
+            transition: all 0.2s;
+        }
+
+        .rating-btn:hover {
+            background: #f7f7f8;
+            border-color: #d1d1d6;
+            color: #1f1f1f;
+        }
+
+        .rating-btn i {
+            font-size: 18px;
+        }
+
+        .rating-btn.rated {
+            color: #f5a623;
+            border-color: #f5a623;
+        }
+
+        /* Rating Popup */
+        .rating-popup {
+            position: absolute;
+            top: 60px;
+            right: 24px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            padding: 16px 20px;
+            z-index: 200;
+            border: 1px solid #e9e9ef;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .rating-popup h4 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #1f1f1f;
+        }
+
+        .stars-container {
+            display: flex;
+            gap: 8px;
+        }
+
+        .star {
+            font-size: 28px;
+            cursor: pointer;
+            color: #e2e2e6;
+            transition: color 0.1s;
+        }
+
+        .star:hover,
+        .star.hover,
+        .star.selected {
+            color: #f5a623;
         }
 
         /* Chat messages */
@@ -667,6 +753,11 @@
             .sidebar-overlay.active {
                 display: block;
             }
+            
+            .rating-popup {
+                right: 16px;
+                top: 55px;
+            }
         }
 
         /* Scrollbar */
@@ -725,9 +816,29 @@
 
     <div class="main-chat">
         <div class="chat-header">
-            <button class="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
-            <div class="chat-title-section">
-                <h2 id="currentChatTitle">New conversation</h2>
+            <div class="header-left">
+                <button class="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
+                <div class="chat-title-section">
+                    <h2 id="currentChatTitle">New conversation</h2>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="rating-btn" id="ratingBtn" onclick="showRatingPopup()">
+                    <i class='bx bx-star'></i>
+                    <span>Rate</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Rating Popup -->
+        <div id="ratingPopup" class="rating-popup" style="display: none;">
+            <h4>Rate this conversation (1–5 stars)</h4>
+            <div class="stars-container" id="starsContainer">
+                <span class="star" data-rating="1">★</span>
+                <span class="star" data-rating="2">★</span>
+                <span class="star" data-rating="3">★</span>
+                <span class="star" data-rating="4">★</span>
+                <span class="star" data-rating="5">★</span>
             </div>
         </div>
 
@@ -766,8 +877,136 @@
     let isSidebarCollapsed = false;
     let currentAbortController = null;
     let isGeneratingResponse = false;
+    let currentConversationRating = null;   // 1-5 or null
     
     const emotionIcons = { sad: '😢', happy: '😊', angry: '😠', anxious: '😰', fear: '😨', surprise: '😲', love: '❤️', neutral: '😐' };
+
+    // ---------- Conversation Rating Functions ----------
+    async function fetchConversationRating(convId) {
+        if (!convId) return null;
+        try {
+            const res = await fetch(`/api/conversation/${convId}/rating`);
+            const data = await res.json();
+            if (data.success) {
+                return data.rating;
+            }
+            return null;
+        } catch(e) {
+            console.error('Error fetching rating:', e);
+            return null;
+        }
+    }
+
+    async function setConversationRating(convId, rating) {
+        if (!convId) return false;
+        try {
+            const res = await fetch(`/api/conversation/${convId}/rating`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rating })
+            });
+            const data = await res.json();
+            if (data.success) {
+                currentConversationRating = rating;
+                updateRatingButtonUI(true);
+                return true;
+            } else {
+                showToast(data.error || 'Failed to save rating');
+                return false;
+            }
+        } catch(e) {
+            console.error('Error setting rating:', e);
+            showToast('Network error while saving rating');
+            return false;
+        }
+    }
+
+    function updateRatingButtonUI(isRated) {
+        const ratingBtn = document.getElementById('ratingBtn');
+        if (isRated && currentConversationRating) {
+            ratingBtn.classList.add('rated');
+            ratingBtn.querySelector('i').className = 'bx bxs-star';
+            // Optionally show rating number
+            const span = ratingBtn.querySelector('span');
+            if (span) span.innerText = `${currentConversationRating} ★`;
+        } else {
+            ratingBtn.classList.remove('rated');
+            ratingBtn.querySelector('i').className = 'bx bx-star';
+            const span = ratingBtn.querySelector('span');
+            if (span) span.innerText = 'Rate';
+        }
+    }
+
+    function resetRatingButton() {
+        currentConversationRating = null;
+        updateRatingButtonUI(false);
+    }
+
+    async function loadRatingForCurrentConversation() {
+        if (!currentConversationId) {
+            resetRatingButton();
+            return;
+        }
+        const rating = await fetchConversationRating(currentConversationId);
+        if (rating && rating >= 1 && rating <= 5) {
+            currentConversationRating = rating;
+            updateRatingButtonUI(true);
+        } else {
+            resetRatingButton();
+        }
+    }
+
+    // Rating Popup Functions
+    function showRatingPopup() {
+        if (!currentConversationId) {
+            showToast('No conversation loaded. Start a chat first.');
+            return;
+        }
+        
+        const popup = document.getElementById('ratingPopup');
+        if (popup.style.display === 'flex') {
+            popup.style.display = 'none';
+            return;
+        }
+        
+        popup.style.display = 'flex';
+        
+        // Highlight current rating if exists
+        const stars = document.querySelectorAll('.star');
+        stars.forEach(star => {
+            star.classList.remove('selected');
+            const ratingVal = parseInt(star.getAttribute('data-rating'));
+            if (currentConversationRating && ratingVal <= currentConversationRating) {
+                star.classList.add('selected');
+            }
+        });
+        
+        // Close popup when clicking outside
+        setTimeout(() => {
+            document.addEventListener('click', function closePopup(e) {
+                if (!popup.contains(e.target) && e.target !== document.getElementById('ratingBtn')) {
+                    popup.style.display = 'none';
+                    document.removeEventListener('click', closePopup);
+                }
+            });
+        }, 100);
+    }
+    
+    async function submitRating(rating) {
+        if (!currentConversationId) {
+            showToast('Cannot rate: no conversation selected');
+            return;
+        }
+        
+        const success = await setConversationRating(currentConversationId, rating);
+        if (success) {
+            showToast(`Thank you for rating this conversation ${rating} star${rating > 1 ? 's' : ''}!`);
+            document.getElementById('ratingPopup').style.display = 'none';
+            // Refresh sidebar conversations to show rating (optional)
+            loadConversations();
+        }
+    }
+    // ---------- End Rating Functions ----------
 
     // Get current Malaysia Time (UTC+8)
     function getCurrentMalaysiaTime() {
@@ -1035,6 +1274,8 @@
                 } else {
                     addMessage("Hello! I'm here to listen and support you. How are you feeling today?", 'bot', null, null, null);
                 }
+                // Load rating for this conversation
+                await loadRatingForCurrentConversation();
                 if (updateUrl) updateUrlWithConversationId(convId);
                 loadConversations();
                 if (window.innerWidth <= 768) closeMobileSidebar();
@@ -1043,10 +1284,9 @@
     }
 
     async function startNewChat() {
-        // Cancel any ongoing response generation
         stopResponseGeneration();
-        
         currentConversationId = null;
+        resetRatingButton();
         document.getElementById('currentChatTitle').innerText = 'New conversation';
         document.getElementById('chatMessages').innerHTML = '';
         addMessage("Hello! I'm here to listen and support you. How are you feeling today?", 'bot', null, null, null);
@@ -1057,10 +1297,7 @@
 
     async function deleteConversation(convId) {
         if (!confirm('Delete this conversation?')) return;
-        
-        // Cancel any ongoing response generation
         stopResponseGeneration();
-        
         const res = await fetch(`/api/conversation/${convId}/delete`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
@@ -1104,7 +1341,6 @@
         const sendBtn = document.getElementById('sendBtn');
         const inputWrapper = document.querySelector('.input-wrapper');
         
-        // Create stop button if it doesn't exist
         let stopBtn = document.getElementById('stopBtn');
         if (!stopBtn) {
             stopBtn = document.createElement('button');
@@ -1117,8 +1353,6 @@
             `;
             stopBtn.onclick = stopResponseGeneration;
         }
-        
-        // Hide send button, show stop button
         sendBtn.style.display = 'none';
         if (!inputWrapper.contains(stopBtn)) {
             inputWrapper.appendChild(stopBtn);
@@ -1126,72 +1360,47 @@
         stopBtn.style.display = 'flex';
     }
     
-    // Function to restore send button
     function showSendButton() {
         const sendBtn = document.getElementById('sendBtn');
         const stopBtn = document.getElementById('stopBtn');
-        
         sendBtn.style.display = 'flex';
-        if (stopBtn) {
-            stopBtn.style.display = 'none';
-        }
+        if (stopBtn) stopBtn.style.display = 'none';
     }
     
-    // Function to stop response generation
     function stopResponseGeneration() {
         if (currentAbortController) {
             currentAbortController.abort();
             currentAbortController = null;
         }
-        
         isGeneratingResponse = false;
         showSendButton();
-        
-        // Hide typing indicator
         const typingIndicator = document.getElementById('typingIndicator');
         typingIndicator.style.display = 'none';
-        
-        // Enable textarea
         const textarea = document.getElementById('userInput');
         textarea.disabled = false;
         textarea.placeholder = "Message AI counselor...";
-        
         showToast('Response generation stopped');
     }
 
     async function sendMessage() {
-        // Don't send if already generating
         if (isGeneratingResponse) {
             showToast('Please wait for the current response to complete or stop it');
             return;
         }
-        
         const input = document.getElementById('userInput');
         const msg = input.value.trim();
         if (!msg) return;
         
-        // Clear input and disable while processing
         input.value = '';
         input.style.height = 'auto';
-        
-        // Add user message immediately
         addMessage(msg, 'user', null, null, null);
         
-        // Set generating state
         isGeneratingResponse = true;
-        
-        // Show stop button instead of send button
         showStopButton();
-        
-        // Disable textarea while generating
         input.disabled = true;
         input.placeholder = "Waiting for response...";
-        
-        // Show typing indicator
         const typingIndicator = document.getElementById('typingIndicator');
         typingIndicator.style.display = 'flex';
-        
-        // Create abort controller for this request
         currentAbortController = new AbortController();
         
         try {
@@ -1202,14 +1411,9 @@
                 signal: currentAbortController.signal
             });
             
-            // Check if request was aborted
-            if (!res.ok) {
-                throw new Error(`HTTP error! status: ${res.status}`);
-            }
-            
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data = await res.json();
             
-            // Only process if still generating (not cancelled)
             if (isGeneratingResponse) {
                 const wasNew = !currentConversationId;
                 if (!currentConversationId) {
@@ -1217,18 +1421,15 @@
                     document.getElementById('currentChatTitle').innerText = msg.slice(0, 40) + (msg.length>40?'...':'');
                     updateUrlWithConversationId(currentConversationId);
                     loadConversations();
+                    // New conversation: ensure rating button is reset (no rating yet)
+                    resetRatingButton();
                 }
-                
                 addMessage(data.response, 'bot', data.emotion, data.confidence, null);
-                
                 if (wasNew) loadConversations();
                 else loadConversations();
             }
         } catch(e) {
-            if (e.name === 'AbortError') {
-                console.log('Request was cancelled by user');
-                // Don't show error toast for user-initiated cancellation
-            } else {
+            if (e.name !== 'AbortError') {
                 console.error('Error:', e);
                 if (isGeneratingResponse) {
                     addMessage('Network error or service unavailable. Please try again.', 'bot', null, null, null);
@@ -1236,21 +1437,13 @@
                 }
             }
         } finally {
-            // Reset state
             isGeneratingResponse = false;
             currentAbortController = null;
-            
-            // Hide typing indicator
             typingIndicator.style.display = 'none';
-            
-            // Restore send button
             showSendButton();
-            
-            // Re-enable textarea
             input.disabled = false;
             input.placeholder = "Message AI counselor...";
             input.focus();
-            
             scrollToBottom();
         }
     }
@@ -1270,7 +1463,6 @@
     }
     
     async function logout() { 
-        // Cancel any ongoing response
         stopResponseGeneration();
         await fetch('/api/logout', { method: 'POST' }); 
         window.location.href = '/login'; 
@@ -1279,12 +1471,31 @@
     // Event listeners
     document.getElementById('sendBtn').addEventListener('click', sendMessage);
     
+    // Star rating event listeners
+    document.querySelectorAll('.star').forEach(star => {
+        star.addEventListener('click', () => {
+            const rating = parseInt(star.getAttribute('data-rating'));
+            submitRating(rating);
+        });
+        star.addEventListener('mouseenter', () => {
+            const rating = parseInt(star.getAttribute('data-rating'));
+            const stars = document.querySelectorAll('.star');
+            stars.forEach(s => {
+                const sRating = parseInt(s.getAttribute('data-rating'));
+                if (sRating <= rating) s.classList.add('hover');
+                else s.classList.remove('hover');
+            });
+        });
+    });
+    document.querySelector('.stars-container')?.addEventListener('mouseleave', () => {
+        document.querySelectorAll('.star').forEach(s => s.classList.remove('hover'));
+    });
+    
     const textarea = document.getElementById('userInput');
     textarea.addEventListener('input', function() { 
         this.style.height = 'auto'; 
         this.style.height = Math.min(this.scrollHeight, 120) + 'px'; 
     });
-    
     textarea.addEventListener('keypress', (e) => { 
         if(e.key === 'Enter' && !e.shiftKey && !isGeneratingResponse) { 
             e.preventDefault(); 
@@ -1296,7 +1507,6 @@
         const id = getUrlParameter('conversation_id'); 
         id ? await loadConversation(id, false) : startNewChat(); 
     });
-    
     window.addEventListener('resize', function() {
         if (window.innerWidth > 768) {
             const sidebar = document.getElementById('sidebar');

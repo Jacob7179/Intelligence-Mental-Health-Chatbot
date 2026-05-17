@@ -325,6 +325,20 @@
             color: #4caf50;
         }
 
+        /* Rating stars */
+        .rating-stars {
+            display: inline-flex;
+            gap: 2px;
+            color: #ffb800;
+            font-size: 14px;
+        }
+        .rating-stars i {
+            font-size: 14px;
+        }
+        .rating-stars .empty {
+            color: #d1d1d6;
+        }
+
         /* Modal */
         .modal {
             display: none;
@@ -585,7 +599,7 @@
                         </tr>
                     </thead>
                     <tbody id="usersTableBody">
-                        <tr><td colspan="6" style="text-align: center; padding: 40px;">Loading users......</td></tr>
+                        <tr><td colspan="6" style="text-align: center; padding: 40px;">Loading users...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -624,12 +638,13 @@
                             <th>User</th>
                             <th>User ID</th>
                             <th>Messages</th>
+                            <th>Rating</th>
                             <th>Last Updated (MYT)</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="conversationsTableBody">
-                        <tr><td colspan="6" style="text-align: center; padding: 40px;">Loading conversations...</td></tr>
+                        <tr><td colspan="7" style="text-align: center; padding: 40px;">Loading conversations...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -764,6 +779,22 @@
             } catch(e) {
                 return 'N/A';
             }
+        }
+
+        // Helper: Render rating stars
+        function renderRatingStars(rating) {
+            if (!rating || rating < 1 || rating > 5) {
+                return '<span style="color:#8e8e93;">Not rated</span>';
+            }
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= rating) {
+                    stars += '<i class="bx bxs-star"></i>';
+                } else {
+                    stars += '<i class="bx bx-star empty"></i>';
+                }
+            }
+            return `<div class="rating-stars">${stars}</div>`;
         }
 
         // Save current tab to localStorage
@@ -1044,7 +1075,7 @@
             }
             
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">No conversations found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">No conversations found</td></tr>';
                 return;
             }
             
@@ -1054,6 +1085,7 @@
                     <td>${escapeHtml(conv.username)}</td>
                     <td><code style="font-size: 11px;">${conv.user_id.substring(0, 12)}...</code></td>
                     <td>${conv.message_count || 0}</td>
+                    <td>${renderRatingStars(conv.rating)}</td>
                     <td>${formatDateMYT(conv.updated_at)}</td>
                     <td>
                         <div class="action-buttons">
@@ -1069,6 +1101,7 @@
                 const res = await fetch(`/api/admin/conversation/${conversationId}`);
                 const data = await res.json();
                 if (data.success) {
+                    const ratingHtml = renderRatingStars(data.conversation.rating);
                     const messagesHtml = data.messages.map(msg => `
                         <div class="conversation-message ${msg.sender}">
                             <strong>${msg.sender === 'user' ? '👤 User' : '🤖 AI Counselor'}:</strong>
@@ -1083,7 +1116,11 @@
                     
                     document.getElementById('conversationMessages').innerHTML = `
                         <h4>📝 ${escapeHtml(data.conversation.title)}</h4>
-                        <p style="color: #8e8e93; margin-bottom: 15px;">👤 User: ${escapeHtml(data.conversation.username)} | 💬 ${data.conversation.message_count} messages</p>
+                        <p style="color: #8e8e93; margin-bottom: 15px;">
+                            👤 User: ${escapeHtml(data.conversation.username)} | 
+                            💬 ${data.conversation.message_count} messages | 
+                            ⭐ Rating: ${ratingHtml}
+                        </p>
                         <hr style="margin: 15px 0;">
                         ${messagesHtml || '<p>No messages in this conversation.</p>'}
                     `;
