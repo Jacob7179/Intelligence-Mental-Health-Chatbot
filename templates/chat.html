@@ -669,6 +669,104 @@
             100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
         }
 
+        /* ========== WELCOME MODAL STYLES ========== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .welcome-modal {
+            background: white;
+            border-radius: 32px;
+            width: 90%;
+            max-width: 420px;
+            padding: 40px 32px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            animation: modalSlideUp 0.3s ease;
+        }
+
+        @keyframes modalSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .welcome-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .welcome-modal h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .welcome-modal p {
+            color: #6c6c72;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-signin {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 40px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-signin:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102,126,234,0.3);
+        }
+
+        .btn-guest {
+            background: transparent;
+            border: 1px solid #e2e2e6;
+            padding: 14px 24px;
+            border-radius: 40px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            color: #1f1f1f;
+            transition: background 0.2s;
+        }
+
+        .btn-guest:hover {
+            background: #f7f7f8;
+            border-color: #d1d1d6;
+        }
+
         /* RESPONSIVE - FIXED MOBILE BEHAVIOR */
         @media (max-width: 768px) {
             .sidebar {
@@ -757,6 +855,11 @@
             .rating-popup {
                 right: 16px;
                 top: 55px;
+            }
+
+            .welcome-modal {
+                width: 90%;
+                padding: 32px 24px;
             }
         }
 
@@ -870,6 +973,19 @@
     </div>
 </div>
 
+<!-- Welcome Modal -->
+<div id="welcomeModal" class="modal-overlay" style="display: none;">
+    <div class="welcome-modal">
+        <div class="welcome-icon">🌿</div>
+        <h2>Welcome to Mental Health Support</h2>
+        <p>Your safe space for emotional wellness. Chat with our AI counselor anytime.</p>
+        <div class="modal-buttons">
+            <button class="btn-signin" onclick="redirectToLogin()">Sign In</button>
+            <button class="btn-guest" onclick="continueAsGuest()">Continue as Guest</button>
+        </div>
+    </div>
+</div>
+
 <script>
     let currentConversationId = null;
     let currentUsername = '';
@@ -877,7 +993,8 @@
     let isSidebarCollapsed = false;
     let currentAbortController = null;
     let isGeneratingResponse = false;
-    let currentConversationRating = null;   // 1-5 or null
+    let currentConversationRating = null;
+    let isGuestUser = false;
     
     const emotionIcons = { sad: '😢', happy: '😊', angry: '😠', anxious: '😰', fear: '😨', surprise: '😲', love: '❤️', neutral: '😐' };
 
@@ -926,7 +1043,6 @@
         if (isRated && currentConversationRating) {
             ratingBtn.classList.add('rated');
             ratingBtn.querySelector('i').className = 'bx bxs-star';
-            // Optionally show rating number
             const span = ratingBtn.querySelector('span');
             if (span) span.innerText = `${currentConversationRating} ★`;
         } else {
@@ -971,7 +1087,6 @@
         
         popup.style.display = 'flex';
         
-        // Highlight current rating if exists
         const stars = document.querySelectorAll('.star');
         stars.forEach(star => {
             star.classList.remove('selected');
@@ -981,7 +1096,6 @@
             }
         });
         
-        // Close popup when clicking outside
         setTimeout(() => {
             document.addEventListener('click', function closePopup(e) {
                 if (!popup.contains(e.target) && e.target !== document.getElementById('ratingBtn')) {
@@ -1002,11 +1116,9 @@
         if (success) {
             showToast(`Thank you for rating this conversation ${rating} star${rating > 1 ? 's' : ''}!`);
             document.getElementById('ratingPopup').style.display = 'none';
-            // Refresh sidebar conversations to show rating (optional)
             loadConversations();
         }
     }
-    // ---------- End Rating Functions ----------
 
     // Get current Malaysia Time (UTC+8)
     function getCurrentMalaysiaTime() {
@@ -1014,7 +1126,6 @@
         return new Date(now.getTime() + (8 * 60 * 60 * 1000));
     }
 
-    // Helper: Convert UTC timestamp from MongoDB to Malaysia Time (UTC+8)
     function convertToMalaysiaTime(timestamp) {
         if (!timestamp) return null;
         try {
@@ -1027,7 +1138,6 @@
                 return null;
             }
             if (isNaN(date.getTime())) return null;
-            // Add 8 hours for Malaysia time (UTC+8)
             const malaysiaDate = new Date(date.getTime() + (8 * 60 * 60 * 1000));
             return malaysiaDate;
         } catch(e) {
@@ -1035,19 +1145,16 @@
         }
     }
 
-    // Format message time - FOR DATABASE TIMESTAMPS (add 8 hours)
     function formatMessageTimeFromDB(timestamp) {
         const malaysiaDate = convertToMalaysiaTime(timestamp);
         if (!malaysiaDate) return 'Just now';
         return malaysiaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Format current time for user messages (no timezone adjustment - uses local browser time)
     function formatCurrentTime() {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Format conversation date
     function formatConversationDate(dateValue) {
         if (!dateValue) return 'Recent';
         try {
@@ -1061,14 +1168,9 @@
             }
             if (isNaN(date.getTime())) return 'Recent';
             
-            // Get current local time
             const now = new Date();
-            
-            // Get date objects (year, month, day) for comparison
             const dateObj = new Date(date.getFullYear(), date.getMonth(), date.getDate());
             const nowDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            
-            // Calculate difference in days
             const diffTime = nowDateObj - dateObj;
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             
@@ -1185,13 +1287,19 @@
         try {
             const res = await fetch('/api/check-auth');
             const data = await res.json();
-            if (!data.authenticated) { window.location.href = '/login'; return false; }
-            document.getElementById('sidebarUsername').innerText = data.username;
-            document.getElementById('userAvatarInitial').innerText = data.username.charAt(0).toUpperCase();
-            currentUsername = data.username;
-            await fetchUserEmail();
-            return true;
-        } catch(e) { window.location.href = '/login'; return false; }
+            if (data.authenticated) {
+                document.getElementById('sidebarUsername').innerText = data.username;
+                document.getElementById('userAvatarInitial').innerText = data.username.charAt(0).toUpperCase();
+                currentUsername = data.username;
+                isGuestUser = data.is_guest || false;
+                await fetchUserEmail();
+                return true;
+            }
+            return false;
+        } catch(e) {
+            console.error('Auth check error:', e);
+            return false;
+        }
     }
     
     async function fetchUserEmail() {
@@ -1199,18 +1307,18 @@
             const res = await fetch('/api/user-profile');
             if (res.ok) {
                 const data = await res.json();
-                if (data.success && data.email) {
+                if (data.success) {
                     currentUserEmail = data.email;
-                    document.getElementById('userEmailDisplay').innerText = currentUserEmail;
+                    document.getElementById('userEmailDisplay').innerText = isGuestUser ? 'Guest User' : (currentUserEmail || currentUsername);
                 } else {
-                    document.getElementById('userEmailDisplay').innerText = currentUsername || 'User';
+                    document.getElementById('userEmailDisplay').innerText = isGuestUser ? 'Guest User' : (currentUsername || 'User');
                 }
             } else {
-                document.getElementById('userEmailDisplay').innerText = currentUsername || 'Mental Wellness';
+                document.getElementById('userEmailDisplay').innerText = isGuestUser ? 'Guest User' : (currentUsername || 'Mental Wellness');
             }
         } catch(e) {
             console.error('Error fetching user email:', e);
-            document.getElementById('userEmailDisplay').innerText = currentUsername || 'User';
+            document.getElementById('userEmailDisplay').innerText = isGuestUser ? 'Guest User' : (currentUsername || 'User');
         }
     }
 
@@ -1274,7 +1382,6 @@
                 } else {
                     addMessage("Hello! I'm here to listen and support you. How are you feeling today?", 'bot', null, null, null);
                 }
-                // Load rating for this conversation
                 await loadRatingForCurrentConversation();
                 if (updateUrl) updateUrlWithConversationId(convId);
                 loadConversations();
@@ -1336,7 +1443,6 @@
         scrollToBottom();
     }
 
-    // Function to replace send button with stop button
     function showStopButton() {
         const sendBtn = document.getElementById('sendBtn');
         const inputWrapper = document.querySelector('.input-wrapper');
@@ -1421,7 +1527,6 @@
                     document.getElementById('currentChatTitle').innerText = msg.slice(0, 40) + (msg.length>40?'...':'');
                     updateUrlWithConversationId(currentConversationId);
                     loadConversations();
-                    // New conversation: ensure rating button is reset (no rating yet)
                     resetRatingButton();
                 }
                 addMessage(data.response, 'bot', data.emotion, data.confidence, null);
@@ -1465,12 +1570,56 @@
     async function logout() { 
         stopResponseGeneration();
         await fetch('/api/logout', { method: 'POST' }); 
-        window.location.href = '/login'; 
+        // After logout, show welcome modal again
+        sessionStorage.clear();
+        window.location.reload();
     }
 
-    // Event listeners
-    document.getElementById('sendBtn').addEventListener('click', sendMessage);
-    
+    // Guest mode functions
+    function redirectToLogin() {
+        window.location.href = '/login';
+    }
+
+    async function continueAsGuest() {
+        try {
+            const res = await fetch('/api/guest-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Reload the page to initialize with guest session
+                window.location.reload();
+            } else {
+                showToast('Failed to create guest session. Please try again.');
+            }
+        } catch(e) {
+            console.error('Guest login error:', e);
+            showToast('Network error. Please try again.');
+        }
+    }
+
+    function showWelcomeModalIfNeeded() {
+        const modal = document.getElementById('welcomeModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            // Disable chat input while modal is shown
+            const textarea = document.getElementById('userInput');
+            const sendBtn = document.getElementById('sendBtn');
+            if (textarea) textarea.disabled = true;
+            if (sendBtn) sendBtn.disabled = true;
+        }
+    }
+
+    function hideWelcomeModalAndEnableChat() {
+        const modal = document.getElementById('welcomeModal');
+        if (modal) modal.style.display = 'none';
+        const textarea = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        if (textarea) textarea.disabled = false;
+        if (sendBtn) sendBtn.disabled = false;
+    }
+
     // Star rating event listeners
     document.querySelectorAll('.star').forEach(star => {
         star.addEventListener('click', () => {
@@ -1518,12 +1667,20 @@
     });
 
     (async function init() {
-        if (await checkAuth()) {
+        const isAuthenticated = await checkAuth();
+        
+        if (isAuthenticated) {
+            // User is logged in (registered or guest)
+            hideWelcomeModalAndEnableChat();
             loadSidebarState();
             await loadConversations();
             const urlId = getUrlParameter('conversation_id');
             if (urlId) await loadConversation(urlId);
             else startNewChat();
+        } else {
+            // Not authenticated - show welcome modal
+            showWelcomeModalIfNeeded();
+            // Disable chat functionality until guest login or sign in
         }
     })();
 </script>

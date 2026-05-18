@@ -59,12 +59,13 @@ def init_mongodb():
         users_collection = db['users']
         conversations_collection = db['conversations']
         messages_collection = db['messages']
-        admins_collection = db['admins']  # Add this for admin system
+        admins_collection = db['admins']
         
         # Create indexes
         if users_collection is not None:
             users_collection.create_index([("username", pymongo.ASCENDING)], unique=True)
             users_collection.create_index([("email", pymongo.ASCENDING)], unique=True)
+            users_collection.create_index([("is_guest", pymongo.ASCENDING)])
         
         if conversations_collection is not None:
             conversations_collection.create_index([("user_id", pymongo.ASCENDING)])
@@ -127,7 +128,7 @@ CRISIS_KEYWORDS = [
     'commit suicide', 'suicidal', 'self-harm'
 ]
 
-# Authentication decorator
+# Authentication decorator - now works for both registered and guest users
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -149,7 +150,8 @@ def get_user_profile():
                 return jsonify({
                     'success': True,
                     'username': user.get('username'),
-                    'email': user.get('email')
+                    'email': user.get('email'),
+                    'is_guest': user.get('is_guest', False)
                 })
         else:
             if user_id in IN_MEMORY_USERS:
@@ -157,7 +159,8 @@ def get_user_profile():
                 return jsonify({
                     'success': True,
                     'username': user.get('username'),
-                    'email': user.get('email')
+                    'email': user.get('email'),
+                    'is_guest': user.get('is_guest', False)
                 })
         
         return jsonify({'success': False, 'error': 'User not found'}), 404
@@ -399,7 +402,7 @@ def detect_emotion(text):
     # PRIORITY 0: Check for positive affirmations FIRST (before anything else)
     positive_affirmations = [
         r'\bgood\b', r'\bgreat\b', r'\bfine\b', r'\bokay\b', r'\bok\b', r'\bhi\b',
-        r'\bhappy\b', r'\bglad\b', r'\bjoy\b', r'\bwonderful\b', r'\bawesome\b' r'\bgreeting\b',
+        r'\bhappy\b', r'\bglad\b', r'\bjoy\b', r'\bwonderful\b', r'\bawesome\b', r'\bgreeting\b',
         r'\bdoing well\b', r'\bfeeling good\b', r"\bm good\b", r"\bm fine\b"
     ]
     
@@ -627,7 +630,7 @@ def save_conversation_to_db(user_id, conversation_id, title=None):
                     "created_at": datetime.utcnow(),
                     "updated_at": datetime.utcnow(),
                     "message_count": 0,
-                    "rating": None           # <-- added rating field
+                    "rating": None
                 }
                 conversations_collection.insert_one(conversation_doc)
             
@@ -647,7 +650,7 @@ def save_conversation_to_db(user_id, conversation_id, title=None):
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
             "message_count": 0,
-            "rating": None                 # <-- added rating field
+            "rating": None
         }
     
     return conversation_id
@@ -745,7 +748,6 @@ def get_user_conversations(user_id, limit=50):
                     conv['created_at'] = conv['created_at'].isoformat()
                 if isinstance(conv['updated_at'], datetime):
                     conv['updated_at'] = conv['updated_at'].isoformat()
-                # rating field may be absent for old conversations – add default None
                 if 'rating' not in conv:
                     conv['rating'] = None
             
@@ -797,14 +799,11 @@ print("\n" + "="*60)
 print("SERVER STARTING...")
 print("="*60)
 
-# Routes
+# Routes - Updated to always serve chat page as default
 @app.route('/')
 def home():
-    if 'user_id' in session:
-        # Get conversation_id from URL if present (for display purposes)
-        conversation_id = request.args.get('conversation_id')
-        return render_template('chat.html')
-    return render_template('login.html')
+    # Always serve chat.html - authentication handled by frontend modal
+    return render_template('chat.html')
 
 @app.route('/login')
 def login_page():
@@ -813,6 +812,90 @@ def login_page():
 @app.route('/register')
 def register_page():
     return render_template('register.html')
+
+# Guest login endpoint - creates a temporary user
+@app.route('/api/guest-login', methods=['POST'])
+def guest_login():
+    """Create or retrieve a guest user session"""
+    try:
+        # Check if user already has a session (might be existing guest or registered)
+        if 'user_id' in session:
+            return jsonify({
+                'success': True,
+                'user_id': session['user_id'],
+                'username': session.get('username', 'Guest'),
+                'is_guest': session.get('is_guest', False)
+            })
+        
+        # Generate unique guest ID
+        guest_id = str(uuid.uuid4())
+        guest_username = f"guest_{uuid.uuid4().hex[:8]}"
+        guest_email = f"{guest_username}@guest.local"
+        
+        if is_mongodb_connected():
+            # Check if guest with same ID exists (unlikely, but just in case)
+            existing = users_collection.find_one({'user_id': guest_id})
+            if existing:
+                # If exists, use it
+                session['user_id'] = existing['user_id']
+                session['username'] = existing['username']
+                session['is_guest'] = existing.get('is_guest', True)
+                return jsonify({
+                    'success': True,
+                    'user_id': existing['user_id'],
+                    'username': existing['username'],
+                    'is_guest': True
+                })
+            
+            # Create new guest user
+            guest_user = {
+                'user_id': guest_id,
+                'username': guest_username,
+                'email': guest_email,
+                'password_hash': generate_password_hash(uuid.uuid4().hex),  # Random password
+                'is_guest': True,
+                'created_at': datetime.utcnow(),
+                'last_login': datetime.utcnow()
+            }
+            users_collection.insert_one(guest_user)
+        else:
+            # In-memory fallback
+            if guest_id in IN_MEMORY_USERS:
+                session['user_id'] = guest_id
+                session['username'] = IN_MEMORY_USERS[guest_id]['username']
+                session['is_guest'] = True
+                return jsonify({
+                    'success': True,
+                    'user_id': guest_id,
+                    'username': IN_MEMORY_USERS[guest_id]['username'],
+                    'is_guest': True
+                })
+            
+            IN_MEMORY_USERS[guest_id] = {
+                'user_id': guest_id,
+                'username': guest_username,
+                'email': guest_email,
+                'password_hash': generate_password_hash(uuid.uuid4().hex),
+                'is_guest': True,
+                'created_at': datetime.utcnow(),
+                'last_login': datetime.utcnow()
+            }
+        
+        # Set session
+        session['user_id'] = guest_id
+        session['username'] = guest_username
+        session['is_guest'] = True
+        
+        return jsonify({
+            'success': True,
+            'user_id': guest_id,
+            'username': guest_username,
+            'is_guest': True
+        })
+        
+    except Exception as e:
+        print(f"Guest login error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -845,6 +928,7 @@ def register():
                 'username': username,
                 'email': email,
                 'password_hash': generate_password_hash(password),
+                'is_guest': False,
                 'created_at': datetime.utcnow(),
                 'last_login': None
             }
@@ -861,6 +945,7 @@ def register():
                 'username': username,
                 'email': email,
                 'password_hash': generate_password_hash(password),
+                'is_guest': False,
                 'created_at': datetime.utcnow(),
                 'last_login': None
             }
@@ -887,12 +972,12 @@ def login():
         user = None
         
         if is_mongodb_connected():
-            # Find user in MongoDB
-            user = users_collection.find_one({'username': username})
+            # Find user in MongoDB (excluding guest users)
+            user = users_collection.find_one({'username': username, 'is_guest': {'$ne': True}})
         else:
             # Find user in memory
             for u in IN_MEMORY_USERS.values():
-                if u['username'] == username:
+                if u['username'] == username and not u.get('is_guest', False):
                     user = u
                     break
         
@@ -911,6 +996,7 @@ def login():
         # Set session
         session['user_id'] = user['user_id']
         session['username'] = user['username']
+        session['is_guest'] = False
         
         return jsonify({
             'success': True,
@@ -924,7 +1010,10 @@ def login():
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
-    session.clear()
+    session.pop('user_id', None)
+    session.pop('username', None)
+    session.pop('is_guest', None)
+    #session.clear()
     return jsonify({'success': True})
 
 @app.route('/api/check-auth', methods=['GET'])
@@ -933,7 +1022,8 @@ def check_auth():
         return jsonify({
             'authenticated': True,
             'user_id': session['user_id'],
-            'username': session['username']
+            'username': session['username'],
+            'is_guest': session.get('is_guest', False)
         })
     return jsonify({'authenticated': False})
 
@@ -957,7 +1047,7 @@ def get_conversation_rating(conversation_id):
         if not conv:
             return jsonify({'error': 'Conversation not found'}), 404
         
-        rating = conv.get('rating')   # can be None or int 1-5
+        rating = conv.get('rating')
         return jsonify({'success': True, 'rating': rating})
     
     except Exception as e:
@@ -1055,7 +1145,7 @@ def get_conversation(conversation_id):
                 'created_at': conv['created_at'].isoformat() if isinstance(conv['created_at'], datetime) else conv['created_at'],
                 'updated_at': conv['updated_at'].isoformat() if isinstance(conv['updated_at'], datetime) else conv['updated_at'],
                 'message_count': conv.get('message_count', 0),
-                'rating': conv.get('rating')   # <-- include rating in response
+                'rating': conv.get('rating')
             },
             'messages': messages or []
         })
@@ -1445,7 +1535,7 @@ def admin_get_conversation_details(conversation_id):
 
 @app.route('/api/admin/users', methods=['GET'])
 def admin_get_users():
-    """Get all users with conversation counts for admin"""
+    """Get all users with conversation counts for admin (exclude guests or include based on need)"""
     if not session.get('is_admin'):
         return jsonify({'error': 'Unauthorized'}), 401
     
@@ -1453,6 +1543,7 @@ def admin_get_users():
         users_list = []
         
         if is_mongodb_connected() and users_collection is not None:
+            # Include all users including guests for admin visibility
             users_cursor = users_collection.find({}, {'password_hash': 0})
             
             for user in users_cursor:
@@ -1462,6 +1553,7 @@ def admin_get_users():
                     'user_id': user['user_id'],
                     'username': user['username'],
                     'email': user['email'],
+                    'is_guest': user.get('is_guest', False),
                     'created_at': user['created_at'].isoformat() if isinstance(user.get('created_at'), datetime) else user.get('created_at'),
                     'last_login': user['last_login'].isoformat() if isinstance(user.get('last_login'), datetime) else user.get('last_login'),
                     'conversation_count': conv_count
@@ -1473,6 +1565,7 @@ def admin_get_users():
                     'user_id': user_id,
                     'username': user['username'],
                     'email': user['email'],
+                    'is_guest': user.get('is_guest', False),
                     'created_at': user['created_at'].isoformat() if isinstance(user.get('created_at'), datetime) else user.get('created_at'),
                     'last_login': user['last_login'].isoformat() if isinstance(user.get('last_login'), datetime) else user.get('last_login'),
                     'conversation_count': conv_count
@@ -1486,7 +1579,7 @@ def admin_get_users():
 
 @app.route('/api/admin/users', methods=['POST'])
 def admin_create_user():
-    """Create a new user"""
+    """Create a new user (non-guest)"""
     if not session.get('is_admin'):
         return jsonify({'error': 'Unauthorized'}), 401
     
@@ -1510,6 +1603,7 @@ def admin_create_user():
                 'username': username,
                 'email': email,
                 'password_hash': generate_password_hash(password),
+                'is_guest': False,
                 'created_at': datetime.utcnow(),
                 'last_login': None
             }
@@ -1523,6 +1617,7 @@ def admin_create_user():
                 'username': username,
                 'email': email,
                 'password_hash': generate_password_hash(password),
+                'is_guest': False,
                 'created_at': datetime.utcnow(),
                 'last_login': None
             }
@@ -1534,7 +1629,7 @@ def admin_create_user():
 
 @app.route('/api/admin/users/<user_id>', methods=['PUT'])
 def admin_update_user(user_id):
-    """Update user information"""
+    """Update user information (non-guest users only or allow updating guests?)"""
     if not session.get('is_admin'):
         return jsonify({'error': 'Unauthorized'}), 401
     
