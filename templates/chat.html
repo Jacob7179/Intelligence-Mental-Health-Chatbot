@@ -31,7 +31,7 @@
 
         /* SIDEBAR - Premium ChatGPT Style */
         .sidebar {
-            width: 260px;
+            width: 280px;
             background-color: #f9f9fb;
             display: flex;
             flex-direction: column;
@@ -1101,6 +1101,98 @@
             cursor: not-allowed;
             transform: none;
         }
+        /* Sidebar header - new stacked layout */
+        .sidebar-header {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            margin-bottom: 12px;
+        }
+
+        .sidebar-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .sidebar-icon {
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+
+        .app-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1f1f1f;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Toggle button - remove full width, keep compact */
+        .sidebar-toggle-btn {
+            width: auto;
+            height: 36px;
+            background: #ffffff;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #fff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            font-size: 13px;
+            font-weight: 500;
+            color: #1f1f1f;
+            padding: 0 12px;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: #f0f0f4;
+            border-color: rgba(0,0,0,0.12);
+            transform: translateY(-1px);
+        }
+
+        .sidebar-toggle-btn svg {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.25s ease;
+            stroke: #5e5e66;
+            stroke-width: 2;
+        }
+
+        /* Adjust collapsed state - hide app title text, keep icon */
+        .sidebar.collapsed .app-title {
+            display: none;
+        }
+
+        .sidebar.collapsed .logo-area {
+            gap: 0;
+        }
+
+        /* For mobile: ensure sidebar-top still works */
+        @media (max-width: 768px) {
+            .sidebar.mobile-open .app-title {
+                display: inline-block;
+            }
+            .sidebar.mobile-open.collapsed .app-title {
+                display: inline-block;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1111,11 +1203,17 @@
     <!-- Sidebar with stacked layout: Toggle button above New Chat -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <div class="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M15 18l-6-6 6-6"/>
-                </svg>
-                <span>Collapse</span>
+            <div class="sidebar-top">
+                <div class="logo-area">
+                    <img src="{{ url_for('static', filename='icon/icon.ico') }}" alt="Mental Health Chatbot" class="sidebar-icon">
+                    <span class="app-title">Mental Health Chatbot</span>
+                </div>
+                <div class="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                    <span style="display: none;">Collapse</span>
+                </div>
             </div>
             <button class="new-chat-btn" onclick="startNewChat()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
