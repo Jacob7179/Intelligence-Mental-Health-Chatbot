@@ -901,6 +901,9 @@
         async function viewUserDetails(userId) {
             const user = users.find(u => u.user_id === userId);
             if (!user) return;
+
+            const ageDisplay = user.age ? `${user.age} years old` : 'Not provided';
+            const genderDisplay = user.gender && user.gender !== 'Prefer not to say' ? user.gender : 'Prefer not to say';
             
             document.getElementById('viewUserContent').innerHTML = `
                 <div class="detail-row">
@@ -914,6 +917,14 @@
                 <div class="detail-row">
                     <strong>User ID</strong>
                     <span><code>${user.user_id}</code></span>
+                </div>
+                <div class="detail-row">
+                <strong>Age</strong>
+                    <span>${ageDisplay}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Gender</strong>
+                    <span>${genderDisplay}</span>
                 </div>
                 <div class="detail-row">
                     <strong>Joined Date (MYT)</strong>

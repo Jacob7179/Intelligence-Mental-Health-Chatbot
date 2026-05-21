@@ -1682,6 +1682,8 @@ def admin_get_users():
                     'username': user['username'],
                     'email': user['email'],
                     'is_guest': user.get('is_guest', False),
+                    'age': user.get('age'),
+                    'gender': user.get('gender'),
                     'created_at': user['created_at'].isoformat() if isinstance(user.get('created_at'), datetime) else user.get('created_at'),
                     'last_login': user['last_login'].isoformat() if isinstance(user.get('last_login'), datetime) else user.get('last_login'),
                     'conversation_count': conv_count
@@ -1694,6 +1696,8 @@ def admin_get_users():
                     'username': user['username'],
                     'email': user['email'],
                     'is_guest': user.get('is_guest', False),
+                    'age': user.get('age'),
+                    'gender': user.get('gender'),
                     'created_at': user['created_at'].isoformat() if isinstance(user.get('created_at'), datetime) else user.get('created_at'),
                     'last_login': user['last_login'].isoformat() if isinstance(user.get('last_login'), datetime) else user.get('last_login'),
                     'conversation_count': conv_count
