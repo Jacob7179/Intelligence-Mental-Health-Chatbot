@@ -874,6 +874,233 @@
             background: #c1c1c8;
             border-radius: 10px;
         }
+
+        /* Settings Popup Menu */
+        .settings-popup {
+            position: absolute;
+            bottom: 70px;
+            left: 20px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            width: 200px;
+            z-index: 100;
+            overflow: hidden;
+            border: 1px solid #e9e9ef;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .settings-popup .settings-item {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+            color: #1f1f1f;
+        }
+
+        .settings-popup .settings-item i {
+            font-size: 18px;
+            width: 24px;
+            color: #6c6c72;
+        }
+
+        .settings-popup .settings-item:hover {
+            background: #f7f7f8;
+        }
+
+        .settings-popup hr {
+            margin: 0;
+            border: none;
+            border-top: 1px solid #e9e9ef;
+        }
+
+        /* Profile Modal */
+        .profile-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .profile-modal {
+            background: white;
+            border-radius: 28px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            animation: modalSlideUp 0.3s ease;
+        }
+
+        .profile-modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e9e9ef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .profile-modal-header h3 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .close-modal-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #8e8e93;
+            padding: 4px 8px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .close-modal-btn:hover {
+            background: #f0f0f4;
+        }
+
+        .profile-modal-body {
+            padding: 24px;
+        }
+
+        .profile-image-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .profile-preview {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #e9e9ef;
+            margin-bottom: 12px;
+            background: #f7f7f8;
+        }
+
+        .image-upload-label {
+            background: #f0f0f4;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .image-upload-label:hover {
+            background: #e2e2e8;
+        }
+
+        .image-upload-input {
+            display: none;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #6c6c72;
+            margin-bottom: 6px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #e2e2e6;
+            border-radius: 14px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: border 0.2s;
+            background: white;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group input:disabled, .form-group select:disabled {
+            background: #f7f7f8;
+            color: #8e8e93;
+            cursor: not-allowed;
+        }
+
+        .guest-notice {
+            background: #fef3c7;
+            color: #d97706;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-save, .btn-discard {
+            flex: 1;
+            padding: 12px;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+        }
+
+        .btn-discard {
+            background: transparent;
+            border: 1px solid #e2e2e6;
+            color: #1f1f1f;
+        }
+
+        .btn-discard:hover {
+            background: #f7f7f8;
+        }
+
+        .btn-save:disabled, .btn-discard:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
     </style>
 </head>
 <body>
@@ -899,21 +1126,25 @@
         </div>
         <div class="conversations-list" id="conversationsList"></div>
         <div class="sidebar-footer">
-            <div class="user-info">
+            <div class="user-info" onclick="toggleSettingsPopup(event)">
                 <div class="user-avatar" id="userAvatarInitial">👤</div>
                 <div class="user-text">
                     <h4 id="sidebarUsername">User</h4>
                     <p id="userEmailDisplay">Loading...</p>
                 </div>
             </div>
-            <button class="logout-btn" onclick="logout()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                <span class="logout-text">Log out</span>
-            </button>
+        </div>
+
+        <div id="settingsPopup" class="settings-popup" style="display: none;">
+            <div class="settings-item" onclick="openProfileModal()">
+                <i class='bx bx-user-circle'></i>
+                <span>Settings</span>
+            </div>
+            <hr>
+            <div class="settings-item" onclick="logout()">
+                <i class='bx bx-log-out'></i>
+                <span>Log out</span>
+            </div>
         </div>
     </div>
 
@@ -986,6 +1217,54 @@
     </div>
 </div>
 
+<div id="profileModal" class="profile-modal-overlay" style="display: none;">
+    <div class="profile-modal">
+        <div class="profile-modal-header">
+            <h3>Edit Profile</h3>
+            <button class="close-modal-btn" onclick="closeProfileModal()">&times;</button>
+        </div>
+        <div class="profile-modal-body">
+            <div id="guestNotice" class="guest-notice" style="display: none;">
+                <i class='bx bx-info-circle'></i>
+                <span>Guest accounts cannot edit profile. Please sign up to enable editing.</span>
+            </div>
+            <div class="profile-image-section">
+                <img id="profilePreview" class="profile-preview" src="https://ui-avatars.com/api/?background=667eea&color=fff&bold=true" alt="Profile">
+                <label id="imageUploadLabel" class="image-upload-label">
+                    <i class='bx bx-camera'></i>
+                    <span>Change Photo</span>
+                    <input type="file" id="profileImageInput" class="image-upload-input" accept="image/jpeg,image/png,image/gif">
+                </label>
+            </div>
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="profileName" placeholder="Your name">
+            </div>
+            <div class="form-group">
+                <label>Email (cannot be changed)</label>
+                <input type="email" id="profileEmail" disabled>
+            </div>
+            <div class="form-group">
+                <label>Age</label>
+                <input type="number" id="profileAge" placeholder="Age" min="1" max="120">
+            </div>
+            <div class="form-group">
+                <label>Gender</label>
+                <select id="profileGender">
+                    <option value="Prefer not to say">Prefer not to say</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-save" id="saveProfileBtn">Save</button>
+                <button class="btn-discard" onclick="closeProfileModal()">Discard</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     let currentConversationId = null;
     let currentUsername = '';
@@ -995,6 +1274,9 @@
     let isGeneratingResponse = false;
     let currentConversationRating = null;
     let isGuestUser = false;
+    let settingsPopupVisible = false;
+    let currentProfileData = null;
+    let originalProfileData = null;
     
     const emotionIcons = { sad: '😢', happy: '😊', angry: '😠', anxious: '😰', fear: '😨', surprise: '😲', love: '❤️', neutral: '😐' };
 
@@ -1391,7 +1673,6 @@
     }
 
     async function startNewChat() {
-        stopResponseGeneration();
         currentConversationId = null;
         resetRatingButton();
         document.getElementById('currentChatTitle').innerText = 'New conversation';
@@ -1404,7 +1685,6 @@
 
     async function deleteConversation(convId) {
         if (!confirm('Delete this conversation?')) return;
-        stopResponseGeneration();
         const res = await fetch(`/api/conversation/${convId}/delete`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
@@ -1672,6 +1952,7 @@
         if (isAuthenticated) {
             // User is logged in (registered or guest)
             hideWelcomeModalAndEnableChat();
+            await loadProfileAvatar();
             loadSidebarState();
             await loadConversations();
             const urlId = getUrlParameter('conversation_id');
@@ -1683,6 +1964,290 @@
             // Disable chat functionality until guest login or sign in
         }
     })();
+
+    function toggleSettingsPopup(event) {
+        event.stopPropagation();
+        const popup = document.getElementById('settingsPopup');
+        if (settingsPopupVisible) {
+            popup.style.display = 'none';
+            settingsPopupVisible = false;
+        } else {
+            // Position the popup near the user-info
+            const userInfo = document.querySelector('.user-info');
+            const rect = userInfo.getBoundingClientRect();
+            popup.style.position = 'fixed';
+            popup.style.bottom = (window.innerHeight - rect.top + 10) + 'px';
+            popup.style.left = (rect.left + 10) + 'px';
+            popup.style.display = 'block';
+            settingsPopupVisible = true;
+            
+            // Close popup when clicking outside
+            setTimeout(() => {
+                document.addEventListener('click', closeSettingsPopupOnClickOutside);
+            }, 100);
+        }
+    }
+
+    function closeSettingsPopupOnClickOutside(e) {
+        const popup = document.getElementById('settingsPopup');
+        const userInfo = document.querySelector('.user-info');
+        if (!popup.contains(e.target) && !userInfo.contains(e.target)) {
+            popup.style.display = 'none';
+            settingsPopupVisible = false;
+            document.removeEventListener('click', closeSettingsPopupOnClickOutside);
+        }
+    }
+
+    async function openProfileModal() {
+        document.getElementById('settingsPopup').style.display = 'none';
+        settingsPopupVisible = false;
+        
+        try {
+            const res = await fetch('/api/user-profile');
+            const data = await res.json();
+            if (data.success) {
+                // Store a deep copy of original data
+                originalProfileData = {
+                    username: data.username || '',
+                    email: data.email || '',
+                    age: data.age || '',
+                    gender: data.gender || '',
+                    profile_image: data.profile_image || null,
+                    is_guest: data.is_guest || false
+                };
+                
+                // Populate modal fields
+                document.getElementById('profileName').value = originalProfileData.username;
+                document.getElementById('profileEmail').value = originalProfileData.email;
+                document.getElementById('profileAge').value = originalProfileData.age;
+                document.getElementById('profileGender').value = originalProfileData.gender;
+                
+                // Set profile image preview
+                if (originalProfileData.profile_image) {
+                    document.getElementById('profilePreview').src = originalProfileData.profile_image;
+                } else {
+                    document.getElementById('profilePreview').src = `https://ui-avatars.com/api/?background=667eea&color=fff&bold=true&name=${encodeURIComponent(originalProfileData.username)}`;
+                }
+                
+                // Handle guest mode
+                const isGuest = originalProfileData.is_guest;
+                const inputs = document.querySelectorAll('#profileName, #profileAge, #profileGender');
+                const saveBtn = document.getElementById('saveProfileBtn');
+                const imageLabel = document.getElementById('imageUploadLabel');
+                const guestNotice = document.getElementById('guestNotice');
+                
+                if (isGuest) {
+                    guestNotice.style.display = 'flex';
+                    inputs.forEach(input => input.disabled = true);
+                    saveBtn.disabled = true;
+                    imageLabel.style.opacity = '0.5';
+                    imageLabel.style.cursor = 'not-allowed';
+                    document.getElementById('profileImageInput').disabled = true;
+                } else {
+                    guestNotice.style.display = 'none';
+                    inputs.forEach(input => input.disabled = false);
+                    saveBtn.disabled = false;
+                    imageLabel.style.opacity = '1';
+                    imageLabel.style.cursor = 'pointer';
+                    document.getElementById('profileImageInput').disabled = false;
+                }
+                
+                document.getElementById('profileModal').style.display = 'flex';
+            } else {
+                showToast('Failed to load profile data');
+            }
+        } catch(e) {
+            console.error('Error loading profile:', e);
+            showToast('Network error loading profile');
+        }
+    }
+
+    function closeProfileModal() {
+        if (checkProfileChanges()) {
+            if (confirm('You have unsaved changes. Discard them?')) {
+                document.getElementById('profileModal').style.display = 'none';
+                resetProfileForm();
+                originalProfileData = null;
+            }
+        } else {
+            document.getElementById('profileModal').style.display = 'none';
+            originalProfileData = null;
+        }
+    }
+
+    function checkProfileChanges() {
+        if (!originalProfileData) return false;
+        
+        const currentName = document.getElementById('profileName').value.trim();
+        const currentAge = document.getElementById('profileAge').value;
+        const currentGender = document.getElementById('profileGender').value;
+        const previewSrc = document.getElementById('profilePreview').src;
+        
+        // Compare name
+        const nameChanged = currentName !== (originalProfileData.username || '');
+        
+        // Compare age (convert both to comparable types)
+        const originalAge = originalProfileData.age ? String(originalProfileData.age) : '';
+        const ageChanged = currentAge !== originalAge;
+        
+        // Compare gender
+        const genderChanged = currentGender !== (originalProfileData.gender || '');
+        
+        // Compare image: if original had custom image, compare src; else check if preview is NOT the default avatar
+        let imageChanged = false;
+        const isDefaultAvatar = previewSrc.includes('ui-avatars.com');
+        if (originalProfileData.profile_image) {
+            // Original had custom image – compare src directly
+            imageChanged = previewSrc !== originalProfileData.profile_image;
+        } else {
+            // Original had no custom image – changed if current is not default avatar
+            imageChanged = !isDefaultAvatar;
+        }
+        
+        return nameChanged || ageChanged || genderChanged || imageChanged;
+    }
+
+    function resetProfileForm() {
+        // Restore original values to the form fields
+        if (originalProfileData) {
+            document.getElementById('profileName').value = originalProfileData.username || '';
+            document.getElementById('profileAge').value = originalProfileData.age || '';
+            
+            const genderSelect = document.getElementById('profileGender');
+            if (originalProfileData.gender && ['Male', 'Female', 'Other', 'Prefer not to say'].includes(originalProfileData.gender)) {
+                genderSelect.value = originalProfileData.gender;
+            } else {
+                // Default to "Prefer not to say" if gender is null, undefined, or empty
+                genderSelect.value = 'Prefer not to say';
+            }
+            
+            // Restore original profile image
+            if (originalProfileData.profile_image) {
+                document.getElementById('profilePreview').src = originalProfileData.profile_image;
+            } else {
+                const defaultAvatar = `https://ui-avatars.com/api/?background=667eea&color=fff&bold=true&name=${encodeURIComponent(originalProfileData.username || 'U')}`;
+                document.getElementById('profilePreview').src = defaultAvatar;
+            }
+        }
+        // Clear file input
+        document.getElementById('profileImageInput').value = '';
+    }
+
+    // Handle image upload and preview
+    document.getElementById('profileImageInput')?.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('Image must be less than 2MB');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                document.getElementById('profilePreview').src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Save profile changes
+    document.getElementById('saveProfileBtn')?.addEventListener('click', async function() {
+        // First ask for confirmation
+        const confirmSave = confirm('Do you want to save changes?');
+        if (!confirmSave) return;
+        
+        const saveBtn = this;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        
+        try {
+            const name = document.getElementById('profileName').value.trim();
+            const age = document.getElementById('profileAge').value;
+            const gender = document.getElementById('profileGender').value;
+            let profileImage = null;
+            
+            // Check if image changed
+            const previewSrc = document.getElementById('profilePreview').src;
+            if (previewSrc && !previewSrc.includes('ui-avatars.com')) {
+                profileImage = previewSrc;
+            }
+            
+            const updateData = {
+                username: name,
+                age: age ? parseInt(age) : null,
+                gender: gender || null,
+                profile_image: profileImage
+            };
+            
+            const res = await fetch('/api/user-profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            });
+            
+            const data = await res.json();
+            if (data.success) {
+                showToast('Profile updated successfully');
+                // Update sidebar username
+                if (name) {
+                    document.getElementById('sidebarUsername').innerText = name;
+                    const userAvatar = document.getElementById('userAvatarInitial');
+                    if (!profileImage) {
+                        userAvatar.innerText = name.charAt(0).toUpperCase();
+                        userAvatar.style.backgroundImage = '';
+                    } else {
+                        userAvatar.style.backgroundImage = `url(${profileImage})`;
+                        userAvatar.style.backgroundSize = 'cover';
+                        userAvatar.innerText = '';
+                    }
+                }
+                // Update email display
+                await fetchUserEmail();
+                
+                // Update originalProfileData to reflect saved values
+                originalProfileData = {
+                    ...originalProfileData,
+                    username: name,
+                    age: age ? parseInt(age) : null,
+                    gender: gender || null,
+                    profile_image: profileImage
+                };
+                
+                closeProfileModal(); // closes modal after successful save
+            } else {
+                showToast(data.error || 'Failed to update profile');
+            }
+        } catch(e) {
+            console.error('Error saving profile:', e);
+            showToast('Network error. Please try again.');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
+    });
+
+    document.querySelector('.user-info')?.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+
+    // Also update the initial load to set avatar from stored image if exists
+    async function loadProfileAvatar() {
+        try {
+            const res = await fetch('/api/user-profile');
+            const data = await res.json();
+            if (data.success && data.profile_image) {
+                document.getElementById('userAvatarInitial').style.backgroundImage = `url(${data.profile_image})`;
+                document.getElementById('userAvatarInitial').style.backgroundSize = 'cover';
+                document.getElementById('userAvatarInitial').style.backgroundPosition = 'center';
+                document.getElementById('userAvatarInitial').innerText = '';
+            } else if (data.success && data.username) {
+                document.getElementById('userAvatarInitial').innerText = data.username.charAt(0).toUpperCase();
+                document.getElementById('userAvatarInitial').style.background = '';
+            }
+        } catch(e) {
+            console.error('Error loading avatar:', e);
+        }
+    }
+
 </script>
 </body>
 </html>

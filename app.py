@@ -22,9 +22,42 @@ import pymongo
 from pymongo import MongoClient
 import uuid
 import hashlib
+import base64
+import imghdr
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 warnings.filterwarnings('ignore')
+
+MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024  # 2MB
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def is_allowed_image(content_type, filename):
+    """Check if uploaded image is allowed"""
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    return content_type in ['image/jpeg', 'image/png', 'image/gif'] and ext in ALLOWED_IMAGE_EXTENSIONS
+
+def validate_image_base64(image_base64):
+    """Validate and extract image data from base64 string"""
+    if not image_base64:
+        return None
+    # Check format: data:image/xxx;base64,...
+    if not image_base64.startswith('data:image/'):
+        return None
+    try:
+        header, data = image_base64.split(',', 1)
+        # Validate file size
+        if len(data) > MAX_PROFILE_IMAGE_SIZE:
+            return None
+        # Decode to verify it's valid
+        decoded = base64.b64decode(data)
+        # Check image type
+        image_type = imghdr.what(None, decoded)
+        if image_type not in ALLOWED_IMAGE_EXTENSIONS:
+            return None
+        return image_base64  # store as is
+    except Exception:
+        return None
 
 # Load environment variables
 load_dotenv()
@@ -140,7 +173,7 @@ def login_required(f):
 @app.route('/api/user-profile', methods=['GET'])
 @login_required
 def get_user_profile():
-    """Get current user's profile including email"""
+    """Get current user's profile including email, age, gender, profile_image"""
     try:
         user_id = session['user_id']
         
@@ -151,7 +184,10 @@ def get_user_profile():
                     'success': True,
                     'username': user.get('username'),
                     'email': user.get('email'),
-                    'is_guest': user.get('is_guest', False)
+                    'is_guest': user.get('is_guest', False),
+                    'age': user.get('age'),
+                    'gender': user.get('gender'),
+                    'profile_image': user.get('profile_image')
                 })
         else:
             if user_id in IN_MEMORY_USERS:
@@ -160,7 +196,10 @@ def get_user_profile():
                     'success': True,
                     'username': user.get('username'),
                     'email': user.get('email'),
-                    'is_guest': user.get('is_guest', False)
+                    'is_guest': user.get('is_guest', False),
+                    'age': user.get('age'),
+                    'gender': user.get('gender'),
+                    'profile_image': user.get('profile_image')
                 })
         
         return jsonify({'success': False, 'error': 'User not found'}), 404
@@ -168,6 +207,90 @@ def get_user_profile():
     except Exception as e:
         print(f"Error fetching user profile: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+@app.route('/api/user-profile', methods=['PUT'])
+@login_required
+def update_user_profile():
+    """Update user profile: name, age, gender, profile_image"""
+    try:
+        user_id = session['user_id']
+        
+        # Check if guest user
+        if session.get('is_guest', False):
+            return jsonify({'error': 'Guest accounts cannot edit profile. Please sign up.'}), 403
+        
+        data = request.json
+        updates = {}
+        
+        # Update username (name)
+        new_name = data.get('username', '').strip()
+        if new_name:
+            if len(new_name) < 2 or len(new_name) > 50:
+                return jsonify({'error': 'Name must be between 2 and 50 characters'}), 400
+            updates['username'] = new_name
+        
+        # Update age
+        age = data.get('age')
+        if age is not None:
+            try:
+                age_int = int(age)
+                if age_int < 1 or age_int > 120:
+                    return jsonify({'error': 'Age must be between 1 and 120'}), 400
+                updates['age'] = age_int
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid age format'}), 400
+        
+        # Update gender
+        gender = data.get('gender')
+        if gender is not None:
+            valid_genders = ['Male', 'Female', 'Other', 'Prefer not to say']
+            if gender not in valid_genders and gender != '':
+                return jsonify({'error': 'Invalid gender option'}), 400
+            updates['gender'] = gender if gender else None
+        
+        # Update profile image
+        profile_image = data.get('profile_image')
+        if profile_image is not None:
+            # Allow removing image by sending empty string or null
+            if profile_image == '' or profile_image is None:
+                updates['profile_image'] = None
+            else:
+                validated_image = validate_image_base64(profile_image)
+                if not validated_image:
+                    return jsonify({'error': 'Invalid image format or size too large (max 2MB)'}), 400
+                updates['profile_image'] = validated_image
+        
+        if not updates:
+            return jsonify({'error': 'No valid fields to update'}), 400
+        
+        updates['updated_at'] = datetime.utcnow()
+        
+        if is_mongodb_connected():
+            result = users_collection.update_one(
+                {'user_id': user_id},
+                {'$set': updates}
+            )
+            if result.matched_count == 0:
+                return jsonify({'error': 'User not found'}), 404
+        else:
+            if user_id in IN_MEMORY_USERS:
+                IN_MEMORY_USERS[user_id].update(updates)
+            else:
+                return jsonify({'error': 'User not found'}), 404
+        
+        # Update session username if changed
+        if 'username' in updates:
+            session['username'] = updates['username']
+        
+        return jsonify({
+            'success': True,
+            'message': 'Profile updated successfully',
+            'updated_fields': updates
+        })
+        
+    except Exception as e:
+        print(f"Error updating user profile: {e}")
+        return jsonify({'error': str(e)}), 500
 
 def check_safety(user_input):
     """Check for crisis situations"""
@@ -857,6 +980,9 @@ def guest_login():
                 'created_at': datetime.utcnow(),
                 'last_login': datetime.utcnow()
             }
+            guest_user['age'] = None
+            guest_user['gender'] = None
+            guest_user['profile_image'] = None
             users_collection.insert_one(guest_user)
         else:
             # In-memory fallback
@@ -929,10 +1055,13 @@ def register():
                 'email': email,
                 'password_hash': generate_password_hash(password),
                 'is_guest': False,
+                'gender': 'Prefer not to say',
                 'created_at': datetime.utcnow(),
                 'last_login': None
             }
             
+            user_doc['age'] = None
+            user_doc['profile_image'] = None
             users_collection.insert_one(user_doc)
         else:
             # In-memory storage
@@ -946,6 +1075,7 @@ def register():
                 'email': email,
                 'password_hash': generate_password_hash(password),
                 'is_guest': False,
+                'gender': 'Prefer not to say',
                 'created_at': datetime.utcnow(),
                 'last_login': None
             }
@@ -963,27 +1093,25 @@ def register():
 def login():
     try:
         data = request.json
-        username = data.get('username', '').strip()
+        email = data.get('email', '').strip().lower()
         password = data.get('password', '')
-        
-        if not username or not password:
-            return jsonify({'error': 'Username and password required'}), 400
-        
+
+        if not email or not password:
+            return jsonify({'error': 'Email and password required'}), 400
+
         user = None
-        
+
         if is_mongodb_connected():
-            # Find user in MongoDB (excluding guest users)
-            user = users_collection.find_one({'username': username, 'is_guest': {'$ne': True}})
+            user = users_collection.find_one({'email': email, 'is_guest': {'$ne': True}})
         else:
-            # Find user in memory
             for u in IN_MEMORY_USERS.values():
-                if u['username'] == username and not u.get('is_guest', False):
+                if u['email'] == email and not u.get('is_guest', False):
                     user = u
                     break
-        
+
         if not user or not check_password_hash(user['password_hash'], password):
-            return jsonify({'error': 'Invalid username or password'}), 401
-        
+            return jsonify({'error': 'Invalid email or password'}), 401
+
         # Update last login
         if is_mongodb_connected():
             users_collection.update_one(
@@ -992,20 +1120,20 @@ def login():
             )
         else:
             user['last_login'] = datetime.utcnow()
-        
-        # Set session
+
         session['user_id'] = user['user_id']
         session['username'] = user['username']
         session['is_guest'] = False
-        
+
         return jsonify({
             'success': True,
             'user_id': user['user_id'],
             'username': user['username']
         })
-        
+
     except Exception as e:
         print(f"Login error: {e}")
+        return jsonify({'error': str(e)}), 500
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/logout', methods=['POST'])
