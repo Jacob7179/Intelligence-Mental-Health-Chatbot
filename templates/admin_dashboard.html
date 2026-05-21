@@ -617,6 +617,52 @@
                 display: none;
             }
         }
+
+        /* Two-column grid for user details */
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 20px;
+            margin-top: 10px;
+        }
+
+        .detail-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f4;
+        }
+
+        .detail-item strong {
+            display: block;
+            font-size: 12px;
+            color: #8e8e93;
+            margin-bottom: 4px;
+        }
+
+        .detail-item span {
+            font-size: 14px;
+            color: #1f1f1f;
+            word-break: break-word;
+        }
+
+        /* Full-width item when needed (e.g., User ID could span both columns) */
+        .detail-item.full-width {
+            grid-column: span 2;
+        }
+
+        /* Large default avatar for user details modal */
+        .default-avatar-large {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 42px;
+            font-weight: 600;
+            margin: 0 auto;
+        }
     </style>
 </head>
 <body>
@@ -946,6 +992,16 @@
             }
         }
 
+        function getUserAvatarHtml(user) {
+            if (user.profile_image && user.profile_image.startsWith('data:image/')) {
+                // Show actual image (40x40 circle)
+                return `<img src="${escapeHtml(user.profile_image)}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
+            } else {
+                // Fallback to colored letter avatar
+                return `<div class="user-avatar-small">${escapeHtml(user.username.charAt(0).toUpperCase())}</div>`;
+            }
+        }
+
         function renderUsers(userList) {
             const tbody = document.getElementById('usersTableBody');
             const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
@@ -968,7 +1024,7 @@
                 <tr>
                     <td>
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <div class="user-avatar-small">${escapeHtml(user.username.charAt(0).toUpperCase())}</div>
+                            ${getUserAvatarHtml(user)}
                             <strong>${escapeHtml(user.username)}</strong>
                         </div>
                     </td>
@@ -994,40 +1050,59 @@
             const ageDisplay = user.age ? `${user.age} years old` : 'Not provided';
             const genderDisplay = user.gender && user.gender !== 'Prefer not to say' ? user.gender : 'Prefer not to say';
             
+            // Profile image or default avatar
+            let profileImageHtml = '';
+            if (user.profile_image && user.profile_image.startsWith('data:image/')) {
+                profileImageHtml = `<div style="text-align: center; margin-bottom: 20px;">
+                                        <img src="${escapeHtml(user.profile_image)}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;">
+                                    </div>`;
+            } else {
+                // Default avatar: first letter of username
+                const firstLetter = user.username.charAt(0).toUpperCase();
+                profileImageHtml = `<div style="text-align: center; margin-bottom: 20px;">
+                                        <div class="default-avatar-large">${escapeHtml(firstLetter)}</div>
+                                    </div>`;
+            }
+            
+            // Build the two-column grid
             document.getElementById('viewUserContent').innerHTML = `
-                <div class="detail-row">
-                    <strong>Username</strong>
-                    <span>${escapeHtml(user.username)}</span>
-                </div>
-                <div class="detail-row">
-                    <strong>Email</strong>
-                    <span>${escapeHtml(user.email)}</span>
-                </div>
-                <div class="detail-row">
-                    <strong>User ID</strong>
-                    <span><code>${user.user_id}</code></span>
-                </div>
-                <div class="detail-row">
-                <strong>Age</strong>
-                    <span>${ageDisplay}</span>
-                </div>
-                <div class="detail-row">
-                    <strong>Gender</strong>
-                    <span>${genderDisplay}</span>
-                </div>
-                <div class="detail-row">
-                    <strong>Joined Date (MYT)</strong>
-                    <span>${formatDateMYT(user.created_at)}</span>
-                </div>
-                <div class="detail-row">
-                    <strong>Last Login (MYT)</strong>
-                    <span>${formatDateMYT(user.last_login)}</span>
-                </div>
-                <div class="detail-row">
-                    <strong>Total Conversations</strong>
-                    <span>${user.conversation_count || 0}</span>
+                ${profileImageHtml}
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <strong>Username</strong>
+                        <span>${escapeHtml(user.username)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Email</strong>
+                        <span>${escapeHtml(user.email)}</span>
+                    </div>
+                    <div class="detail-item full-width">
+                        <strong>User ID</strong>
+                        <span><code>${user.user_id}</code></span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Age</strong>
+                        <span>${ageDisplay}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Gender</strong>
+                        <span>${genderDisplay}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Joined Date (MYT)</strong>
+                        <span>${formatDateMYT(user.created_at)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Last Login (MYT)</strong>
+                        <span>${formatDateMYT(user.last_login)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Total Conversations</strong>
+                        <span>${user.conversation_count || 0}</span>
+                    </div>
                 </div>
             `;
+            
             document.getElementById('viewUserModal').classList.add('active');
         }
 
