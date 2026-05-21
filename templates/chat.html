@@ -452,44 +452,50 @@
         /* Rating Popup */
         .rating-popup {
             position: absolute;
-            top: 60px;
+            top: 55px;
             right: 24px;
             background: white;
             border-radius: 20px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-            padding: 16px 20px;
+            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
+            padding: 14px 20px;
             z-index: 200;
-            border: 1px solid #e9e9ef;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-width: 180px;
+            text-align: center;
             animation: fadeIn 0.2s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         .rating-popup h4 {
             font-size: 14px;
-            margin-bottom: 12px;
+            font-weight: 600;
+            margin: 0;
             color: #1f1f1f;
         }
 
         .stars-container {
             display: flex;
             gap: 8px;
+            justify-content: center;
+            align-items: center;
         }
 
         .star {
-            font-size: 28px;
+            font-size: 26px;
             cursor: pointer;
             color: #e2e2e6;
-            transition: color 0.1s;
+            transition: all 0.15s ease;
+            line-height: 1;
         }
 
         .star:hover,
         .star.hover,
         .star.selected {
             color: #f5a623;
+            transform: scale(1.05);
         }
 
         /* Chat messages */
@@ -892,7 +898,6 @@
 
         .settings-popup .settings-item {
             padding: 12px 16px;
-            display: flex;
             align-items: center;
             gap: 12px;
             cursor: pointer;
@@ -936,13 +941,22 @@
             background: white;
             border-radius: 28px;
             width: 90%;
-            max-width: 500px;
+            max-width: 600px;
             max-height: 85vh;
             overflow-y: auto;
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
             animation: modalSlideUp 0.3s ease;
         }
+        .form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
 
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
         .profile-modal-header {
             padding: 20px 24px;
             border-bottom: 1px solid #e9e9ef;
@@ -1072,9 +1086,15 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             text-align: center;
+            gap: 6px;
         }
-
+        .profile-modal-body {
+            padding: 28px 32px;  /* was 24px */
+        }
         .btn-save {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -1192,6 +1212,28 @@
             .sidebar.mobile-open.collapsed .app-title {
                 display: inline-block;
             }
+        }
+        .btn-close {
+            flex: 1;
+            padding: 12px;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 6px;
+            background: #f0f0f4;
+            border: none;
+            color: #1f1f1f;
+        }
+
+        .btn-close:hover {
+            background: #e2e2e8;
+            transform: translateY(-1px);
         }
     </style>
 </head>
@@ -1342,21 +1384,24 @@
                 <label>Email</label>
                 <input type="email" id="profileEmail" disabled>
             </div>
-            <div class="form-group">
-                <label>Age</label>
-                <input type="number" id="profileAge" placeholder="Age" min="1" max="120">
-            </div>
-            <div class="form-group">
-                <label>Gender</label>
-                <select id="profileGender">
-                    <option value="Prefer not to say">Prefer not to say</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                </select>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Age</label>
+                    <input type="number" id="profileAge" placeholder="Age" min="1" max="120">
+                </div>
+                <div class="form-group">
+                    <label>Gender</label>
+                    <select id="profileGender">
+                        <option value="Prefer not to say">Prefer not to say</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-buttons">
                 <button class="btn-save" id="saveProfileBtn">Save</button>
+                <button class="btn-close" id="closeProfileBtn" style="display: none;">Close</button>
                 <button class="btn-discard" id="discardProfileBtn" onclick="closeProfileModal()">Discard</button>
             </div>
         </div>
@@ -2044,14 +2089,25 @@
         }
     });
 
-    // Profile edit: Discard button visibility control
+    // Profile edit: Control button visibility based on changes
     function updateDiscardButtonVisibility() {
         const discardBtn = document.getElementById('discardProfileBtn');
-        if (!discardBtn) return;
-        if (checkProfileChanges()) {
+        const saveBtn = document.getElementById('saveProfileBtn');
+        const closeBtn = document.getElementById('closeProfileBtn');
+        if (!discardBtn || !saveBtn || !closeBtn) return;
+        
+        const hasChanges = checkProfileChanges();
+        
+        if (hasChanges) {
+            // Changes exist: show Save + Discard, hide Close
+            saveBtn.style.display = 'flex';
             discardBtn.style.display = 'flex';
+            closeBtn.style.display = 'none';
         } else {
+            // No changes: hide Save + Discard, show Close
+            saveBtn.style.display = 'none';
             discardBtn.style.display = 'none';
+            closeBtn.style.display = 'flex';
         }
     }
 
@@ -2368,6 +2424,13 @@
         } catch(e) {
             console.error('Error loading avatar:', e);
         }
+    }
+    const closeProfileBtn = document.getElementById('closeProfileBtn');
+    if (closeProfileBtn) {
+        closeProfileBtn.onclick = function() {
+            document.getElementById('profileModal').style.display = 'none';
+            originalProfileData = null;
+        };
     }
 </script>
 </body>

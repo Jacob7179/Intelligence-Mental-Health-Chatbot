@@ -128,10 +128,99 @@
             font-size: 20px;
         }
 
-        /* Main Content */
+        /* Make main content column scrollable */
         .main-content {
             margin-left: 280px;
-            padding: 24px;
+            padding: 0;
+            height: 100vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Sticky top bar */
+        .top-bar {
+            background: white;
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin: 24px 24px 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+
+        /* Sticky search bar */
+        .search-bar {
+            background: white;
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin: 16px 24px 0 24px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            position: sticky;
+            top: 110px;  /* Adjust based on top-bar height (approx) */
+            z-index: 9;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+
+        /* Table container with vertical scroll */
+        .table-container {
+            background: white;
+            border-radius: 16px;
+            margin: 16px 24px 24px 24px;
+            overflow: auto;
+            flex: 1;
+            max-height: calc(100vh - 220px); /* Adjust based on header+search height */
+        }
+
+        /* Keep the table itself */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        /* For mobile responsiveness */
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 0;
+            }
+            .top-bar, .search-bar, .table-container {
+                margin-left: 16px;
+                margin-right: 16px;
+            }
+            .top-bar {
+                margin-top: 70px; /* Space for mobile menu button */
+            }
+            .search-bar {
+                top: 140px;
+            }
+            .table-container {
+                max-height: calc(100vh - 280px);
+            }
+        }
+        
+        /* Make table header sticky within the scrollable container */
+        .data-table thead tr th {
+            position: sticky;
+            top: 0;
+            background: #f7f7f8;
+            z-index: 5;
+            box-shadow: 0 1px 0 0 #e2e2e6; /* Optional: subtle separator */
+        }
+
+        /* Ensure thead background covers content when scrolling */
+        .data-table thead {
+            background: #f7f7f8;
         }
 
         /* Top Bar */
