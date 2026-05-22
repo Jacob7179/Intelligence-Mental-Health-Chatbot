@@ -655,17 +655,46 @@
 
         .toast {
             position: fixed;
-            bottom: 24px;
+            bottom: 30px;
             left: 50%;
-            transform: translateX(-50%);
-            background: #2c2c2e;
+            transform: translateX(-50%) scale(0.9);
+            background: rgba(44, 44, 46, 0.9);
+            backdrop-filter: blur(12px);
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 40px;
-            font-size: 13px;
-            z-index: 2000;
-            animation: fadeInOut 2s ease;
-            backdrop-filter: blur(8px);
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 10000;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            animation: toastPopInOut 2s ease forwards;
+            white-space: nowrap;
+            max-width: 90%;
+            white-space: normal;
+            text-align: center;
+        }
+
+        @keyframes toastPopInOut {
+            0% {
+                opacity: 0;
+                transform: translateX(-50%) scale(0.7);
+            }
+            15% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1.05);
+            }
+            25% {
+                transform: translateX(-50%) scale(1);
+            }
+            85% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateX(-50%) scale(0.9);
+                visibility: hidden;
+            }
         }
 
         @keyframes fadeInOut {
@@ -994,6 +1023,40 @@
             flex-direction: column;
             align-items: center;
             margin-bottom: 24px;
+        }
+
+        .profile-avatar-wrapper {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin-bottom: 12px;
+        }
+
+        .profile-preview {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #e9e9ef;
+            background: #f7f7f8;
+        }
+
+        .profile-fallback-avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 42px;
+            font-weight: 600;
+            border: 3px solid #e9e9ef;
+        }
+
+        .profile-fallback-avatar span {
+            line-height: 1;
         }
 
         .profile-preview {
@@ -1416,7 +1479,12 @@
                 <span>Guest accounts cannot edit profile. Please sign up to enable editing.</span>
             </div>
             <div class="profile-image-section">
-                <img id="profilePreview" class="profile-preview" src="https://ui-avatars.com/api/?background=667eea&color=fff&bold=true" alt="Profile">
+                <div class="profile-avatar-wrapper" id="profileAvatarWrapper">
+                    <img id="profilePreview" class="profile-preview" style="display: none;" alt="Profile">
+                    <div id="profileFallbackAvatar" class="profile-fallback-avatar">
+                        <span id="profileFallbackInitial">U</span>
+                    </div>
+                </div>
                 <label id="imageUploadLabel" class="image-upload-label">
                     <i class='bx bx-camera'></i>
                     <span>Change Photo</span>
@@ -2273,10 +2341,19 @@
                 document.getElementById('profileGender').value = originalProfileData.gender;
                 
                 // Set profile image preview
+                const profileImg = document.getElementById('profilePreview');
+                const fallbackDiv = document.getElementById('profileFallbackAvatar');
+                const fallbackInitial = document.getElementById('profileFallbackInitial');
+
                 if (originalProfileData.profile_image) {
-                    document.getElementById('profilePreview').src = originalProfileData.profile_image;
+                    profileImg.src = originalProfileData.profile_image;
+                    profileImg.style.display = 'block';
+                    fallbackDiv.style.display = 'none';
                 } else {
-                    document.getElementById('profilePreview').src = `https://ui-avatars.com/api/?background=667eea&color=fff&bold=true&name=${encodeURIComponent(originalProfileData.username)}`;
+                    profileImg.style.display = 'none';
+                    fallbackDiv.style.display = 'flex';
+                    const initial = (originalProfileData.username && originalProfileData.username.charAt(0)) || 'U';
+                    fallbackInitial.innerText = initial.toUpperCase();
                 }
                 
                 // Handle guest mode
@@ -2353,13 +2430,14 @@
         
         // Compare image: if original had custom image, compare src; else check if preview is NOT the default avatar
         let imageChanged = false;
-        const isDefaultAvatar = previewSrc.includes('ui-avatars.com');
+        const profileImg = document.getElementById('profilePreview');
+        const isImageVisible = profileImg.style.display === 'block';
         if (originalProfileData.profile_image) {
-            // Original had custom image – compare src directly
-            imageChanged = previewSrc !== originalProfileData.profile_image;
+            // Original had custom image – changed if image is hidden or src changed
+            imageChanged = !isImageVisible || (isImageVisible && profileImg.src !== originalProfileData.profile_image);
         } else {
-            // Original had no custom image – changed if current is not default avatar
-            imageChanged = !isDefaultAvatar;
+            // Original had no custom image – changed if an image is now visible (custom image added)
+            imageChanged = isImageVisible;
         }
         
         return nameChanged || ageChanged || genderChanged || imageChanged;
@@ -2380,11 +2458,19 @@
             }
             
             // Restore original profile image
+            const profileImg = document.getElementById('profilePreview');
+            const fallbackDiv = document.getElementById('profileFallbackAvatar');
+            const fallbackInitial = document.getElementById('profileFallbackInitial');
+
             if (originalProfileData.profile_image) {
-                document.getElementById('profilePreview').src = originalProfileData.profile_image;
+                profileImg.src = originalProfileData.profile_image;
+                profileImg.style.display = 'block';
+                fallbackDiv.style.display = 'none';
             } else {
-                const defaultAvatar = `https://ui-avatars.com/api/?background=667eea&color=fff&bold=true&name=${encodeURIComponent(originalProfileData.username || 'U')}`;
-                document.getElementById('profilePreview').src = defaultAvatar;
+                profileImg.style.display = 'none';
+                fallbackDiv.style.display = 'flex';
+                const initial = (originalProfileData.username && originalProfileData.username.charAt(0)) || 'U';
+                fallbackInitial.innerText = initial.toUpperCase();
             }
         }
         // Clear file input
@@ -2401,7 +2487,11 @@
             }
             const reader = new FileReader();
             reader.onload = function(event) {
-                document.getElementById('profilePreview').src = event.target.result;
+                const profileImg = document.getElementById('profilePreview');
+                const fallbackDiv = document.getElementById('profileFallbackAvatar');
+                profileImg.src = event.target.result;
+                profileImg.style.display = 'block';
+                fallbackDiv.style.display = 'none';
                 updateDiscardButtonVisibility();
             };
             reader.readAsDataURL(file);
