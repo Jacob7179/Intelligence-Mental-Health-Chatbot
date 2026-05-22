@@ -1235,6 +1235,53 @@
             background: #e2e2e8;
             transform: translateY(-1px);
         }
+
+        /* Password change section */
+        .password-change-section {
+            margin-top: 20px;
+            border-top: 1px solid #e9e9ef;
+            padding-top: 20px;
+        }
+
+        .password-fields {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .password-fields .form-group {
+            margin-bottom: 0;
+        }
+
+        .password-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn-password-save, .btn-password-cancel {
+            flex: 1;
+            padding: 12px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .btn-password-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .btn-password-cancel {
+            background: transparent;
+            border: 1px solid #e2e2e6;
+            color: #1f1f1f;
+        }
     </style>
 </head>
 <body>
@@ -1397,6 +1444,33 @@
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
                     </select>
+                </div>
+            </div>
+            <!-- Change Password Button & Section -->
+            <div class="password-change-section" id="passwordChangeSection">
+                <button class="btn-change-password" id="changePasswordBtn" style="width: 100%; background: none; border: 1px solid #e2e2e6; padding: 10px; border-radius: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class='bx bx-lock-alt'></i>
+                    <span>Change Password</span>
+                </button>
+                <div id="passwordChangeForm" style="display: none; margin-top: 15px;">
+                    <div class="password-fields">
+                        <div class="form-group">
+                            <label>Old Password</label>
+                            <input type="password" id="oldPassword" placeholder="Enter current password">
+                        </div>
+                        <div class="form-group">
+                            <label>New Password</label>
+                            <input type="password" id="newPassword" placeholder="At least 6 characters">
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm New Password</label>
+                            <input type="password" id="confirmPassword" placeholder="Re-enter new password">
+                        </div>
+                    </div>
+                    <div class="password-actions">
+                        <button class="btn-password-save" id="savePasswordBtn">Update Password</button>
+                        <button class="btn-password-cancel" id="cancelPasswordBtn">Back</button>
+                    </div>
                 </div>
             </div>
             <div class="modal-buttons">
@@ -2230,6 +2304,13 @@
                 
                 document.getElementById('profileModal').style.display = 'flex';
                 updateDiscardButtonVisibility();
+                if (isPasswordModeActive) togglePasswordMode(false);
+                const changePasswordBtn = document.getElementById('changePasswordBtn');
+                if (isGuest) {
+                    changePasswordBtn.style.display = 'none';
+                } else {
+                    changePasswordBtn.style.display = 'flex';
+                }
             } else {
                 showToast('Failed to load profile data');
             }
@@ -2432,6 +2513,107 @@
             originalProfileData = null;
         };
     }
+
+    // ---------- Password Change Logic ----------
+let isPasswordModeActive = false;
+
+function togglePasswordMode(active) {
+    const regularProfileFields = document.querySelectorAll('.profile-image-section, .form-group:not(.guest-notice-related), .form-row');
+    const passwordSection = document.getElementById('passwordChangeForm');
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
+    const discardBtn = document.getElementById('discardProfileBtn');
+    const closeBtn = document.getElementById('closeProfileBtn');
+    
+    if (active) {
+        // Hide regular edit elements
+        document.querySelector('.profile-image-section').style.display = 'none';
+        document.getElementById('profileName').closest('.form-group').style.display = 'none';
+        document.getElementById('profileAge').closest('.form-group').style.display = 'none';
+        document.getElementById('profileGender').closest('.form-group').style.display = 'none';
+        // Hide the Save/Discard/Close buttons
+        if (saveProfileBtn) saveProfileBtn.style.display = 'none';
+        if (discardBtn) discardBtn.style.display = 'none';
+        if (closeBtn) closeBtn.style.display = 'none';
+        // Show password form
+        passwordSection.style.display = 'block';
+        changePasswordBtn.style.display = 'none';
+        isPasswordModeActive = true;
+    } else {
+        // Show regular edit elements
+        document.querySelector('.profile-image-section').style.display = 'flex';
+        document.getElementById('profileName').closest('.form-group').style.display = 'block';
+        document.getElementById('profileAge').closest('.form-group').style.display = 'block';
+        document.getElementById('profileGender').closest('.form-group').style.display = 'block';
+        // Restore appropriate buttons based on changes
+        updateDiscardButtonVisibility();
+        // Hide password form
+        passwordSection.style.display = 'none';
+        changePasswordBtn.style.display = 'flex';
+        // Clear password fields
+        document.getElementById('oldPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+        isPasswordModeActive = false;
+    }
+}
+
+async function submitPasswordChange() {
+    const oldPass = document.getElementById('oldPassword').value.trim();
+    const newPass = document.getElementById('newPassword').value.trim();
+    const confirmPass = document.getElementById('confirmPassword').value.trim();
+    
+    if (!oldPass || !newPass || !confirmPass) {
+        showToast('Please fill in all password fields');
+        return;
+    }
+    if (newPass.length < 6) {
+        showToast('New password must be at least 6 characters');
+        return;
+    }
+    if (newPass !== confirmPass) {
+        showToast('New password and confirmation do not match');
+        return;
+    }
+    
+    // Confirm dialog
+    const userConfirmed = confirm('Are you sure you want to change your password? You will need to log in again with the new password.');
+    if (!userConfirmed) return;
+    
+    const saveBtn = document.getElementById('savePasswordBtn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Updating...';
+    
+    try {
+        const res = await fetch('/api/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                old_password: oldPass,
+                new_password: newPass
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Password changed successfully. Please log in again.');
+            // Logout and redirect to login page
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        } else {
+            showToast(data.error || 'Failed to change password');
+        }
+    } catch(e) {
+        showToast('Network error. Please try again.');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Update Password';
+    }
+}
+
+// Attach event listeners after DOM ready
+document.getElementById('changePasswordBtn')?.addEventListener('click', () => togglePasswordMode(true));
+document.getElementById('cancelPasswordBtn')?.addEventListener('click', () => togglePasswordMode(false));
+document.getElementById('savePasswordBtn')?.addEventListener('click', submitPasswordChange);
 </script>
 </body>
 </html>

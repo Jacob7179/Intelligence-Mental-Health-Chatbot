@@ -1420,6 +1420,57 @@ def chat():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/change-password', methods=['POST'])
+@login_required
+def change_password():
+    """Change user password (non-guest only)"""
+    try:
+        user_id = session['user_id']
+        
+        # Guest accounts cannot change password
+        if session.get('is_guest', False):
+            return jsonify({'error': 'Guest accounts cannot change password. Please sign up first.'}), 403
+        
+        data = request.json
+        old_password = data.get('old_password', '')
+        new_password = data.get('new_password', '')
+        
+        if not old_password or not new_password:
+            return jsonify({'error': 'Both old and new password are required'}), 400
+        
+        if len(new_password) < 6:
+            return jsonify({'error': 'New password must be at least 6 characters'}), 400
+        
+        # Retrieve user
+        user = None
+        if is_mongodb_connected() and users_collection is not None:
+            user = users_collection.find_one({'user_id': user_id})
+        else:
+            user = IN_MEMORY_USERS.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Verify old password
+        if not check_password_hash(user['password_hash'], old_password):
+            return jsonify({'error': 'Old password is incorrect'}), 401
+        
+        # Update password
+        new_hash = generate_password_hash(new_password)
+        if is_mongodb_connected() and users_collection is not None:
+            users_collection.update_one(
+                {'user_id': user_id},
+                {'$set': {'password_hash': new_hash, 'updated_at': datetime.utcnow()}}
+            )
+        else:
+            IN_MEMORY_USERS[user_id]['password_hash'] = new_hash
+        
+        return jsonify({'success': True, 'message': 'Password changed successfully'})
+        
+    except Exception as e:
+        print(f"Error changing password: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/get-api-status', methods=['GET'])
 @login_required
 def get_api_status():
