@@ -663,6 +663,108 @@
             font-weight: 600;
             margin: 0 auto;
         }
+
+        .conversation-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e2e2e6;
+        }
+
+        .conversation-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .conversation-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 13px;
+            color: #8e8e93;
+        }
+
+        .conversation-meta i {
+            margin-right: 4px;
+        }
+
+        .messages-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 8px 4px;
+        }
+
+        .message-bubble {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+        }
+
+        .message-bubble.user {
+            align-self: flex-end;
+        }
+
+        .message-bubble.bot {
+            align-self: flex-start;
+        }
+
+        .message-bubble .bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message-bubble.user .bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-bubble.bot .bubble {
+            background: #f7f7f8;
+            color: #1f1f1f;
+            border: 1px solid #efeff1;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 6px;
+            font-size: 11px;
+            color: #8e8e93;
+            padding: 0 8px;
+        }
+
+        .emotion-tag {
+            background: rgba(0,0,0,0.05);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Scrollbar for messages */
+        .messages-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        .messages-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .messages-container::-webkit-scrollbar-thumb {
+            background: #c1c1c8;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -1277,33 +1379,64 @@
                 const data = await res.json();
                 if (data.success) {
                     const ratingHtml = renderRatingStars(data.conversation.rating);
-                    const messagesHtml = data.messages.map(msg => `
-                        <div class="conversation-message ${msg.sender}">
-                            <strong>${msg.sender === 'user' ? '👤 User' : '🤖 AI Counselor'}:</strong>
-                            <div style="margin-top: 5px;">${escapeHtml(msg.content)}</div>
-                            <div class="message-meta">
-                                ${msg.emotion ? `🎭 Emotion: ${msg.emotion} | ` : ''}
-                                ${msg.confidence ? `📊 Confidence: ${(msg.confidence * 100).toFixed(0)}% | ` : ''}
-                                🕐 ${formatDateMYT(msg.timestamp)}
-                            </div>
-                        </div>
-                    `).join('');
+                    
+                    // Build messages HTML
+                    let messagesHtml = '<div class="messages-container">';
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(msg => {
+                            const isUser = msg.sender === 'user';
+                            const senderIcon = isUser ? '<i class="bx bx-user"></i>' : '<i class="bx bx-bot"></i>';
+                            const senderName = isUser ? 'User' : 'AI Counselor';
+                            
+                            let metaHtml = `
+                                <div class="message-meta">
+                                    <span>${senderIcon} ${senderName}</span>
+                                    <span><i class="bx bx-time"></i> ${formatDateMYT(msg.timestamp)}</span>
+                            `;
+                            if (!isUser && msg.emotion) {
+                                const emotionEmoji = getEmotionEmoji(msg.emotion);
+                                metaHtml += `<span class="emotion-tag">${emotionEmoji} ${msg.emotion} ${msg.confidence ? `(${(msg.confidence * 100).toFixed(0)}%)` : ''}</span>`;
+                            }
+                            metaHtml += `</div>`;
+                            
+                            messagesHtml += `
+                                <div class="message-bubble ${msg.sender}">
+                                    <div class="bubble">${escapeHtml(msg.content)}</div>
+                                    ${metaHtml}
+                                </div>
+                            `;
+                        });
+                    } else {
+                        messagesHtml += '<div style="text-align: center; padding: 40px; color: #8e8e93;">No messages in this conversation.</div>';
+                    }
+                    messagesHtml += '</div>';
                     
                     document.getElementById('conversationMessages').innerHTML = `
-                        <h4>📝 ${escapeHtml(data.conversation.title)}</h4>
-                        <p style="color: #8e8e93; margin-bottom: 15px;">
-                            👤 User: ${escapeHtml(data.conversation.username)} | 
-                            💬 ${data.conversation.message_count} messages | 
-                            ⭐ Rating: ${ratingHtml}
-                        </p>
-                        <hr style="margin: 15px 0;">
-                        ${messagesHtml || '<p>No messages in this conversation.</p>'}
+                        <div class="conversation-header">
+                            <div class="conversation-title"><i class="bx bx-message-square-dots"></i> ${escapeHtml(data.conversation.title)}</div>
+                            <div class="conversation-meta">
+                                <span><i class='bx bx-user'></i> ${escapeHtml(data.conversation.username)}</span>
+                                <span><i class='bx bx-message-dots'></i> ${data.conversation.message_count} messages</span>
+                                <span><i class='bx bx-star'></i> Rating: ${ratingHtml}</span>
+                            </div>
+                        </div>
+                        ${messagesHtml}
                     `;
                     document.getElementById('viewConversationModal').classList.add('active');
                 }
             } catch(e) {
                 showToast('Error loading conversation');
             }
+        }
+
+        // Helper to get emoji for emotion
+        function getEmotionEmoji(emotion) {
+            const emojis = {
+                'happy': '😊', 'sad': '😢', 'angry': '😠', 'anxious': '😰',
+                'fear': '😨', 'surprise': '😲', 'love': '❤️', 'neutral': '😐',
+                'crisis': '⚠️'
+            };
+            return emojis[emotion?.toLowerCase()] || '😐';
         }
 
         function closeConversationModal() {
