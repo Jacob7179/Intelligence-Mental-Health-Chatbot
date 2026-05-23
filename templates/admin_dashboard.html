@@ -166,7 +166,7 @@
             flex-wrap: wrap;
             align-items: center;
             position: sticky;
-            top: 110px;  /* Adjust based on top-bar height (approx) */
+            top: 110px;
             z-index: 9;
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
@@ -178,7 +178,7 @@
             margin: 16px 24px 24px 24px;
             overflow: auto;
             flex: 1;
-            max-height: calc(100vh - 220px); /* Adjust based on header+search height */
+            max-height: calc(100vh - 220px);
         }
 
         /* Keep the table itself */
@@ -199,7 +199,7 @@
                 margin-right: 16px;
             }
             .top-bar {
-                margin-top: 70px; /* Space for mobile menu button */
+                margin-top: 70px;
             }
             .search-bar {
                 top: 140px;
@@ -215,7 +215,7 @@
             top: 0;
             background: #f7f7f8;
             z-index: 5;
-            box-shadow: 0 1px 0 0 #e2e2e6; /* Optional: subtle separator */
+            box-shadow: 0 1px 0 0 #e2e2e6;
         }
 
         /* Ensure thead background covers content when scrolling */
@@ -389,11 +389,6 @@
         .action-btn.view:hover {
             background: #e8f5e9;
             color: #4caf50;
-        }
-
-        .action-btn.edit:hover {
-            background: #e3f2fd;
-            color: #2196f3;
         }
 
         .action-btn.delete:hover {
@@ -899,14 +894,14 @@
         </div>
     </div>
 
-    <!-- Add/Edit User Modal -->
+    <!-- Add/Edit User Modal (only Add now) -->
     <div class="modal" id="userModal">
         <div class="modal-content">
             <h3 id="modalTitle">Add New User</h3>
             <input type="hidden" id="editUserId">
             <input type="text" id="userUsername" placeholder="Username" required>
             <input type="email" id="userEmail" placeholder="Email" required>
-            <input type="password" id="userPassword" placeholder="Password (leave empty to keep current)">
+            <input type="password" id="userPassword" placeholder="Password (required for new user)">
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeUserModal()">Cancel</button>
                 <button class="save-btn" onclick="saveUser()">Save</button>
@@ -958,7 +953,6 @@
                     return null;
                 }
                 if (isNaN(date.getTime())) return null;
-                // Add 8 hours for Malaysia time (UTC+8)
                 const malaysiaDate = new Date(date.getTime() + (8 * 60 * 60 * 1000));
                 return malaysiaDate;
             } catch(e) {
@@ -966,7 +960,6 @@
             }
         }
 
-        // Format date for display (UTC+8)
         function formatDateMYT(dateStr) {
             if (!dateStr) return 'N/A';
             try {
@@ -985,7 +978,6 @@
             }
         }
 
-        // Format date only (without time) for user joined date
         function formatDateOnlyMYT(dateStr) {
             if (!dateStr) return 'N/A';
             try {
@@ -1001,7 +993,6 @@
             }
         }
 
-        // Format time only for conversation messages
         function formatTimeMYT(dateStr) {
             if (!dateStr) return 'N/A';
             try {
@@ -1018,7 +1009,6 @@
             }
         }
 
-        // Helper: Render rating stars
         function renderRatingStars(rating) {
             if (!rating || rating < 1 || rating > 5) {
                 return '<span style="color:#8e8e93;">Not rated</span>';
@@ -1034,12 +1024,10 @@
             return `<div class="rating-stars">${stars}</div>`;
         }
 
-        // Save current tab to localStorage
         function saveCurrentTab(tab) {
             localStorage.setItem('adminCurrentTab', tab);
         }
 
-        // Load saved tab from localStorage
         function getSavedTab() {
             return localStorage.getItem('adminCurrentTab') || 'users';
         }
@@ -1096,10 +1084,8 @@
 
         function getUserAvatarHtml(user) {
             if (user.profile_image && user.profile_image.startsWith('data:image/')) {
-                // Show actual image (40x40 circle)
                 return `<img src="${escapeHtml(user.profile_image)}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
             } else {
-                // Fallback to colored letter avatar
                 return `<div class="user-avatar-small">${escapeHtml(user.username.charAt(0).toUpperCase())}</div>`;
             }
         }
@@ -1137,7 +1123,6 @@
                     <td>
                         <div class="action-buttons">
                             <button class="action-btn view" onclick="viewUserDetails('${user.user_id}')" title="View Details"><i class='bx bx-show'></i></button>
-                            <button class="action-btn edit" onclick="editUser('${user.user_id}')" title="Edit User"><i class='bx bx-edit'></i></button>
                             <button class="action-btn delete" onclick="deleteUser('${user.user_id}', '${escapeHtml(user.username)}')" title="Delete User"><i class='bx bx-trash'></i></button>
                         </div>
                     </td>
@@ -1152,21 +1137,18 @@
             const ageDisplay = user.age ? `${user.age} years old` : 'Not provided';
             const genderDisplay = user.gender && user.gender !== 'Prefer not to say' ? user.gender : 'Prefer not to say';
             
-            // Profile image or default avatar
             let profileImageHtml = '';
             if (user.profile_image && user.profile_image.startsWith('data:image/')) {
                 profileImageHtml = `<div style="text-align: center; margin-bottom: 20px;">
                                         <img src="${escapeHtml(user.profile_image)}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;">
                                     </div>`;
             } else {
-                // Default avatar: first letter of username
                 const firstLetter = user.username.charAt(0).toUpperCase();
                 profileImageHtml = `<div style="text-align: center; margin-bottom: 20px;">
                                         <div class="default-avatar-large">${escapeHtml(firstLetter)}</div>
                                     </div>`;
             }
             
-            // Build the two-column grid
             document.getElementById('viewUserContent').innerHTML = `
                 ${profileImageHtml}
                 <div class="details-grid">
@@ -1212,29 +1194,13 @@
             document.getElementById('viewUserModal').classList.remove('active');
         }
 
-        let currentEditUserId = null;
-
         function openAddUserModal() {
-            currentEditUserId = null;
             document.getElementById('modalTitle').innerText = 'Add New User';
             document.getElementById('editUserId').value = '';
             document.getElementById('userUsername').value = '';
             document.getElementById('userEmail').value = '';
             document.getElementById('userPassword').value = '';
             document.getElementById('userPassword').placeholder = 'Password (required for new user)';
-            document.getElementById('userModal').classList.add('active');
-        }
-
-        function editUser(userId) {
-            const user = users.find(u => u.user_id === userId);
-            if (!user) return;
-            currentEditUserId = userId;
-            document.getElementById('modalTitle').innerText = 'Edit User';
-            document.getElementById('editUserId').value = userId;
-            document.getElementById('userUsername').value = user.username;
-            document.getElementById('userEmail').value = user.email;
-            document.getElementById('userPassword').value = '';
-            document.getElementById('userPassword').placeholder = 'Leave empty to keep current password';
             document.getElementById('userModal').classList.add('active');
         }
 
@@ -1380,7 +1346,6 @@
                 if (data.success) {
                     const ratingHtml = renderRatingStars(data.conversation.rating);
                     
-                    // Build messages HTML
                     let messagesHtml = '<div class="messages-container">';
                     if (data.messages && data.messages.length > 0) {
                         data.messages.forEach(msg => {
@@ -1429,7 +1394,6 @@
             }
         }
 
-        // Helper to get emoji for emotion
         function getEmotionEmoji(emotion) {
             const emojis = {
                 'happy': '😊', 'sad': '😢', 'angry': '😠', 'anxious': '😰',
@@ -1470,7 +1434,6 @@
             document.getElementById('sidebar').classList.toggle('mobile-open');
         }
 
-        // Event listeners
         document.getElementById('userSearchInput').addEventListener('input', () => renderUsers(users));
         document.getElementById('convSearchInput').addEventListener('input', () => renderConversations(conversations));
         document.getElementById('userFilterSelect').addEventListener('change', () => renderConversations(conversations));
