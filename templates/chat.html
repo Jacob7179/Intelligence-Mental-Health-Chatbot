@@ -2133,6 +2133,9 @@
     }
     
     async function logout() { 
+        const confirmed = confirm('Are you sure you want to log out?');
+        if (!confirmed) return;
+        
         stopResponseGeneration();
         await fetch('/api/logout', { method: 'POST' }); 
         // After logout, show welcome modal again

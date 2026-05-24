@@ -1426,6 +1426,9 @@
         }
 
         async function logout() {
+            const confirmed = confirm('Are you sure you want to log out from the admin panel?');
+            if (!confirmed) return;
+
             await fetch('/api/admin/logout', { method: 'POST' });
             window.location.href = '/admin/login';
         }
