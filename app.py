@@ -12,7 +12,6 @@ import random
 from pathlib import Path
 from dotenv import load_dotenv
 import google.generativeai as genai
-from openai import OpenAI
 import requests
 import json
 import warnings
@@ -301,52 +300,36 @@ def check_safety(user_input):
     return False, None
 
 def load_emotion_model():
-    """Load the MobileBERT emotion detection model from local folder"""
+    """Load the Hugging Face emotion detection model (distilbert-base-uncased-emotion)"""
     global emotion_tokenizer, emotion_model, label_encoder
     
-    model_path = "emotion_model"
-    
-    if not os.path.exists(model_path):
-        print(f"NOTE: {model_path} folder not found! Using keyword-based detection only.")
-        return False
+    # Use a well-known emotion classification model from Hugging Face Hub
+    model_name = "bhadresh-savani/distilbert-base-uncased-emotion"
     
     try:
-        print(f"\n📦 Loading emotion model from {model_path}...")
+        print(f"\n📦 Loading emotion model from Hugging Face: {model_name}...")
         
-        # Load tokenizer from local folder
-        emotion_tokenizer = AutoTokenizer.from_pretrained(
-            model_path,
-            trust_remote_code=True,
-            local_files_only=True
-        )
-        
-        # Load model from local folder
-        emotion_model = AutoModelForSequenceClassification.from_pretrained(
-            model_path,
-            trust_remote_code=True,
-            local_files_only=True
-        )
+        # Load tokenizer and model from Hugging Face (no local_files_only)
+        emotion_tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+        emotion_model = AutoModelForSequenceClassification.from_pretrained(model_name, trust_remote_code=True)
         emotion_model.to(device)
         emotion_model.eval()
         
-        # Load label encoder
-        label_path = os.path.join(model_path, "label_encoder.pkl")
-        if os.path.exists(label_path):
-            with open(label_path, 'rb') as f:
-                label_encoder = pickle.load(f)
-            print(f"✓ Loaded {len(label_encoder.classes_)} emotion labels: {list(label_encoder.classes_)}")
-        else:
-            print("⚠️ Label encoder not found, using default emotions")
-            from sklearn.preprocessing import LabelEncoder
-            label_encoder = LabelEncoder()
-            default_emotions = ['sad', 'happy', 'angry', 'anxious', 'neutral', 'fear', 'surprise', 'love']
-            label_encoder.fit(default_emotions)
+        # The model's label list is known (sadness, joy, love, anger, fear, surprise)
+        label_list = ['sadness', 'joy', 'love', 'anger', 'fear', 'surprise']
+        # Store as a simple list for index->label mapping (no need for sklearn LabelEncoder)
+        label_encoder = label_list
         
-        print("✓ Emotion model loaded successfully")
+        print(f"✓ Emotion model loaded successfully from Hugging Face")
+        print(f"✓ Emotion labels: {label_list}")
         return True
         
     except Exception as e:
-        print(f"Error loading emotion model: {e}")
+        print(f"⚠️ Error loading Hugging Face model: {e}")
+        print(f"   Falling back to keyword-based detection only.")
+        emotion_tokenizer = None
+        emotion_model = None
+        label_encoder = None
         return False
 
 def enhanced_keyword_detection(text):
@@ -589,24 +572,22 @@ def detect_emotion(text):
                 predicted_class = torch.argmax(probabilities, dim=-1).item()
                 model_confidence = probabilities[0][predicted_class].item()
                 
-                # Get emotion label
-                if label_encoder is not None:
-                    model_emotion = label_encoder.inverse_transform([predicted_class])[0]
+                # Get emotion label using the label list (label_encoder is now a list)
+                if label_encoder is not None and isinstance(label_encoder, list):
+                    model_emotion_raw = label_encoder[predicted_class]
                 else:
-                    model_emotion = 'neutral'
+                    model_emotion_raw = 'neutral'
                 
-                # Map model emotion to our standard categories
+                # Map Hugging Face model labels to your internal categories
                 emotion_mapping = {
                     'joy': 'happy',
                     'sadness': 'sad',
                     'anger': 'angry',
-                    'fear': 'anxious',
+                    'fear': 'fear',
                     'love': 'love',
-                    'surprise': 'surprise',
-                    'neutral': 'neutral'
+                    'surprise': 'surprise'
                 }
-                
-                model_emotion = emotion_mapping.get(model_emotion, model_emotion)
+                model_emotion = emotion_mapping.get(model_emotion_raw, 'neutral')
             
             # If model confidence is high and not conflicting with keyword detection
             if model_confidence > 0.8:
@@ -1133,7 +1114,6 @@ def login():
 
     except Exception as e:
         print(f"Login error: {e}")
-        return jsonify({'error': str(e)}), 500
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/logout', methods=['POST'])
