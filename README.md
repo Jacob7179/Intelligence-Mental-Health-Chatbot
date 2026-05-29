@@ -37,10 +37,16 @@ python app.py
 ```
 
 > [!TIP]\
-> Create **.env** file if not available.\
-> Content:\
+> Create **.env** file if not available.
+>
+> Content:
+>
 > MONGODB_URI=mongodb://localhost:27017/
-> MONGODB_DB=mental_health_chatbot\
-> SECRET_KEY=your-secret-key-here-change-in-production\
-> GEMINI_API_KEY=<Your_Gemini_API_Keys>\
+>
+> MONGODB_DB=mental_health_chatbot
+>
+> SECRET_KEY=your-secret-key-here-change-in-production
+>
+> GEMINI_API_KEY=<Your_Gemini_API_Keys>
+>
 > DEFAULT_API=gemini
