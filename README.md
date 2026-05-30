@@ -1,5 +1,20 @@
 # Intelligence-Mental-Health-Chatbot
 
+> [!TIP]\
+> Create **.env** file if not available.
+>
+> Content:
+>
+> MONGODB_URI=mongodb://localhost:27017/
+>
+> MONGODB_DB=mental_health_chatbot
+>
+> SECRET_KEY=your-secret-key-here-change-in-production
+>
+> GEMINI_API_KEY=<Your_Gemini_API_Keys>
+>
+> DEFAULT_API=gemini
+
 ## Auto Setup
 ```
 ./run.bat
@@ -35,18 +50,3 @@ Run app.py
 ```
 python app.py
 ```
-
-> [!TIP]\
-> Create **.env** file if not available.
->
-> Content:
->
-> MONGODB_URI=mongodb://localhost:27017/
->
-> MONGODB_DB=mental_health_chatbot
->
-> SECRET_KEY=your-secret-key-here-change-in-production
->
-> GEMINI_API_KEY=<Your_Gemini_API_Keys>
->
-> DEFAULT_API=gemini
