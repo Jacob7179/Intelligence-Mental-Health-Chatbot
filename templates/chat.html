@@ -611,7 +611,7 @@
             max-height: 120px;
         }
 
-        .send-btn, .stop-btn {
+        .send-btn, .stop-btn, .mic-btn {
             background: transparent;
             border: none;
             cursor: pointer;
@@ -631,7 +631,23 @@
             color: #e34d4d;
         }
 
-        .send-btn:hover, .stop-btn:hover {
+        .mic-btn {
+            color: #5e5e66;
+        }
+
+        .mic-btn.recording {
+            color: #e34d4d;
+            animation: pulse 1.2s infinite;
+            background-color: rgba(227, 77, 77, 0.1);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .send-btn:hover, .stop-btn:hover, .mic-btn:hover {
             background: #f0f0f4;
             transform: scale(1.05);
         }
@@ -1141,7 +1157,7 @@
             margin-top: 24px;
         }
 
-        .btn-save, .btn-discard {
+        .btn-save, .btn-discard, .btn-close {
             flex: 1;
             padding: 12px;
             border-radius: 40px;
@@ -1156,7 +1172,7 @@
             gap: 6px;
         }
         .profile-modal-body {
-            padding: 28px 32px;  /* was 24px */
+            padding: 28px 32px;
         }
         .btn-save {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -1177,6 +1193,17 @@
 
         .btn-discard:hover {
             background: #f7f7f8;
+        }
+
+        .btn-close {
+            background: #f0f0f4;
+            border: none;
+            color: #1f1f1f;
+        }
+
+        .btn-close:hover {
+            background: #e2e2e8;
+            transform: translateY(-1px);
         }
 
         .btn-save:disabled, .btn-discard:disabled {
@@ -1276,34 +1303,29 @@
                 display: inline-block;
             }
         }
-        .btn-close {
-            flex: 1;
-            padding: 12px;
-            border-radius: 40px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            gap: 6px;
-            background: #f0f0f4;
-            border: none;
-            color: #1f1f1f;
-        }
-
-        .btn-close:hover {
-            background: #e2e2e8;
-            transform: translateY(-1px);
-        }
-
         /* Password change section */
         .password-change-section {
             margin-top: 20px;
             border-top: 1px solid #e9e9ef;
             padding-top: 20px;
+        }
+
+        .btn-change-password {
+            width: 100%;
+            background: none;
+            border: 1px solid #e2e2e6;
+            padding: 10px;
+            border-radius: 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-change-password:hover {
+            background: #f7f7f8;
         }
 
         .password-fields {
@@ -1344,6 +1366,11 @@
             background: transparent;
             border: 1px solid #e2e2e6;
             color: #1f1f1f;
+        }
+        .listening-text {
+            font-size: 12px;
+            color: #e34d4d;
+            margin-left: 8px;
         }
     </style>
 </head>
@@ -1438,6 +1465,13 @@
         <div class="chat-input-container">
             <div class="input-wrapper">
                 <textarea id="userInput" placeholder="Message AI counselor..." rows="1" maxlength="500"></textarea>
+                <button id="micBtn" class="mic-btn" title="Voice input">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="22"/>
+                    </svg>
+                </button>
                 <button id="sendBtn" class="send-btn">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -1516,7 +1550,7 @@
             </div>
             <!-- Change Password Button & Section -->
             <div class="password-change-section" id="passwordChangeSection">
-                <button class="btn-change-password" id="changePasswordBtn" style="width: 100%; background: none; border: 1px solid #e2e2e6; padding: 10px; border-radius: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <button class="btn-change-password" id="changePasswordBtn" style="display: flex;">
                     <i class='bx bx-lock-alt'></i>
                     <span>Change Password</span>
                 </button>
@@ -1562,6 +1596,11 @@
     let settingsPopupVisible = false;
     let currentProfileData = null;
     let originalProfileData = null;
+    let isPasswordModeActive = false;
+
+    // Speech Recognition variables
+    let recognition = null;
+    let isRecording = false;
     
     const emotionIcons = { sad: '😢', happy: '😊', angry: '😠', anxious: '😰', fear: '😨', surprise: '😲', love: '❤️', neutral: '😐' };
 
@@ -2010,6 +2049,7 @@
 
     function showStopButton() {
         const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
         const inputWrapper = document.querySelector('.input-wrapper');
         
         let stopBtn = document.getElementById('stopBtn');
@@ -2025,6 +2065,7 @@
             stopBtn.onclick = stopResponseGeneration;
         }
         sendBtn.style.display = 'none';
+        micBtn.style.display = 'none';
         if (!inputWrapper.contains(stopBtn)) {
             inputWrapper.appendChild(stopBtn);
         }
@@ -2033,8 +2074,10 @@
     
     function showSendButton() {
         const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
         const stopBtn = document.getElementById('stopBtn');
         sendBtn.style.display = 'flex';
+        micBtn.style.display = 'flex';
         if (stopBtn) stopBtn.style.display = 'none';
     }
     
@@ -2171,11 +2214,12 @@
         const modal = document.getElementById('welcomeModal');
         if (modal) {
             modal.style.display = 'flex';
-            // Disable chat input while modal is shown
             const textarea = document.getElementById('userInput');
             const sendBtn = document.getElementById('sendBtn');
+            const micBtn = document.getElementById('micBtn');
             if (textarea) textarea.disabled = true;
             if (sendBtn) sendBtn.disabled = true;
+            if (micBtn) micBtn.disabled = true;
         }
     }
 
@@ -2184,8 +2228,10 @@
         if (modal) modal.style.display = 'none';
         const textarea = document.getElementById('userInput');
         const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
         if (textarea) textarea.disabled = false;
         if (sendBtn) sendBtn.disabled = false;
+        if (micBtn) micBtn.disabled = false;
     }
 
     // Star rating event listeners
@@ -2244,12 +2290,10 @@
         const hasChanges = checkProfileChanges();
         
         if (hasChanges) {
-            // Changes exist: show Save + Discard, hide Close
             saveBtn.style.display = 'flex';
             discardBtn.style.display = 'flex';
             closeBtn.style.display = 'none';
         } else {
-            // No changes: hide Save + Discard, show Close
             saveBtn.style.display = 'none';
             discardBtn.style.display = 'none';
             closeBtn.style.display = 'flex';
@@ -2260,7 +2304,6 @@
         const isAuthenticated = await checkAuth();
         
         if (isAuthenticated) {
-            // User is logged in (registered or guest)
             hideWelcomeModalAndEnableChat();
             await loadProfileAvatar();
             loadSidebarState();
@@ -2269,9 +2312,7 @@
             if (urlId) await loadConversation(urlId);
             else startNewChat();
         } else {
-            // Not authenticated - show welcome modal
             showWelcomeModalIfNeeded();
-            // Disable chat functionality until guest login or sign in
         }
 
         const sendBtn = document.getElementById('sendBtn');
@@ -2279,7 +2320,7 @@
             sendBtn.addEventListener('click', sendMessage);
         }
         
-        // Attach event listeners for profile fields to control discard button
+        // Attach event listeners for profile fields
         const profileNameField = document.getElementById('profileName');
         const profileAgeField = document.getElementById('profileAge');
         const profileGenderField = document.getElementById('profileGender');
@@ -2289,6 +2330,9 @@
         if (profileAgeField) profileAgeField.addEventListener('input', updateDiscardButtonVisibility);
         if (profileGenderField) profileGenderField.addEventListener('change', updateDiscardButtonVisibility);
         if (profileImageInputField) profileImageInputField.addEventListener('change', updateDiscardButtonVisibility);
+        
+        // Initialize speech recognition
+        initSpeechRecognition();
     })();
 
     function toggleSettingsPopup(event) {
@@ -2298,7 +2342,6 @@
             popup.style.display = 'none';
             settingsPopupVisible = false;
         } else {
-            // Position the popup near the user-info
             const userInfo = document.querySelector('.user-info');
             const rect = userInfo.getBoundingClientRect();
             popup.style.position = 'fixed';
@@ -2307,7 +2350,6 @@
             popup.style.display = 'block';
             settingsPopupVisible = true;
             
-            // Close popup when clicking outside
             setTimeout(() => {
                 document.addEventListener('click', closeSettingsPopupOnClickOutside);
             }, 100);
@@ -2332,7 +2374,6 @@
             const res = await fetch('/api/user-profile');
             const data = await res.json();
             if (data.success) {
-                // Store a deep copy of original data
                 originalProfileData = {
                     username: data.username || '',
                     email: data.email || '',
@@ -2342,13 +2383,11 @@
                     is_guest: data.is_guest || false
                 };
                 
-                // Populate modal fields
                 document.getElementById('profileName').value = originalProfileData.username;
                 document.getElementById('profileEmail').value = originalProfileData.email;
                 document.getElementById('profileAge').value = originalProfileData.age;
                 document.getElementById('profileGender').value = originalProfileData.gender;
                 
-                // Set profile image preview
                 const profileImg = document.getElementById('profilePreview');
                 const fallbackDiv = document.getElementById('profileFallbackAvatar');
                 const fallbackInitial = document.getElementById('profileFallbackInitial');
@@ -2364,7 +2403,6 @@
                     fallbackInitial.innerText = initial.toUpperCase();
                 }
                 
-                // Handle guest mode
                 const isGuest = originalProfileData.is_guest;
                 const inputs = document.querySelectorAll('#profileName, #profileAge, #profileGender');
                 const saveBtn = document.getElementById('saveProfileBtn');
@@ -2452,20 +2490,16 @@
     }
 
     function resetProfileForm() {
-        // Restore original values to the form fields
         if (originalProfileData) {
             document.getElementById('profileName').value = originalProfileData.username || '';
             document.getElementById('profileAge').value = originalProfileData.age || '';
-            
             const genderSelect = document.getElementById('profileGender');
             if (originalProfileData.gender && ['Male', 'Female', 'Other', 'Prefer not to say'].includes(originalProfileData.gender)) {
                 genderSelect.value = originalProfileData.gender;
             } else {
-                // Default to "Prefer not to say" if gender is null, undefined, or empty
                 genderSelect.value = 'Prefer not to say';
             }
             
-            // Restore original profile image
             const profileImg = document.getElementById('profilePreview');
             const fallbackDiv = document.getElementById('profileFallbackAvatar');
             const fallbackInitial = document.getElementById('profileFallbackInitial');
@@ -2508,7 +2542,6 @@
 
     // Save profile changes
     document.getElementById('saveProfileBtn')?.addEventListener('click', async function() {
-        // First ask for confirmation
         const confirmSave = confirm('Do you want to save changes?');
         if (!confirmSave) return;
         
@@ -2560,7 +2593,6 @@
                 // Update email display
                 await fetchUserEmail();
                 
-                // Update originalProfileData to reflect saved values
                 originalProfileData = {
                     ...originalProfileData,
                     username: name,
@@ -2569,7 +2601,7 @@
                     profile_image: profileImage
                 };
                 
-                closeProfileModal(); // closes modal after successful save
+                closeProfileModal();
             } else {
                 showToast(data.error || 'Failed to update profile');
             }
@@ -2586,7 +2618,6 @@
         e.stopPropagation();
     });
 
-    // Also update the initial load to set avatar from stored image if exists
     async function loadProfileAvatar() {
         try {
             const res = await fetch('/api/user-profile');
@@ -2613,105 +2644,188 @@
     }
 
     // ---------- Password Change Logic ----------
-let isPasswordModeActive = false;
-
-function togglePasswordMode(active) {
-    const regularProfileFields = document.querySelectorAll('.profile-image-section, .form-group:not(.guest-notice-related), .form-row');
-    const passwordSection = document.getElementById('passwordChangeForm');
-    const changePasswordBtn = document.getElementById('changePasswordBtn');
-    const saveProfileBtn = document.getElementById('saveProfileBtn');
-    const discardBtn = document.getElementById('discardProfileBtn');
-    const closeBtn = document.getElementById('closeProfileBtn');
-    
-    if (active) {
-        // Hide regular edit elements
-        document.querySelector('.profile-image-section').style.display = 'none';
-        document.getElementById('profileName').closest('.form-group').style.display = 'none';
-        document.getElementById('profileAge').closest('.form-group').style.display = 'none';
-        document.getElementById('profileGender').closest('.form-group').style.display = 'none';
-        // Hide the Save/Discard/Close buttons
-        if (saveProfileBtn) saveProfileBtn.style.display = 'none';
-        if (discardBtn) discardBtn.style.display = 'none';
-        if (closeBtn) closeBtn.style.display = 'none';
-        // Show password form
-        passwordSection.style.display = 'block';
-        changePasswordBtn.style.display = 'none';
-        isPasswordModeActive = true;
-    } else {
-        // Show regular edit elements
-        document.querySelector('.profile-image-section').style.display = 'flex';
-        document.getElementById('profileName').closest('.form-group').style.display = 'block';
-        document.getElementById('profileAge').closest('.form-group').style.display = 'block';
-        document.getElementById('profileGender').closest('.form-group').style.display = 'block';
-        // Restore appropriate buttons based on changes
-        updateDiscardButtonVisibility();
-        // Hide password form
-        passwordSection.style.display = 'none';
-        changePasswordBtn.style.display = 'flex';
-        // Clear password fields
-        document.getElementById('oldPassword').value = '';
-        document.getElementById('newPassword').value = '';
-        document.getElementById('confirmPassword').value = '';
-        isPasswordModeActive = false;
-    }
-}
-
-async function submitPasswordChange() {
-    const oldPass = document.getElementById('oldPassword').value.trim();
-    const newPass = document.getElementById('newPassword').value.trim();
-    const confirmPass = document.getElementById('confirmPassword').value.trim();
-    
-    if (!oldPass || !newPass || !confirmPass) {
-        showToast('Please fill in all password fields');
-        return;
-    }
-    if (newPass.length < 6) {
-        showToast('New password must be at least 6 characters');
-        return;
-    }
-    if (newPass !== confirmPass) {
-        showToast('New password and confirmation do not match');
-        return;
-    }
-    
-    // Confirm dialog
-    const userConfirmed = confirm('Are you sure you want to change your password? You will need to log in again with the new password.');
-    if (!userConfirmed) return;
-    
-    const saveBtn = document.getElementById('savePasswordBtn');
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Updating...';
-    
-    try {
-        const res = await fetch('/api/change-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                old_password: oldPass,
-                new_password: newPass
-            })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showToast('Password changed successfully. Please log in again.');
-            // Logout and redirect to login page
-            await fetch('/api/logout', { method: 'POST' });
-            window.location.href = '/login';
+    function togglePasswordMode(active) {
+        const regularProfileFields = document.querySelectorAll('.profile-image-section, .form-group:not(.guest-notice-related), .form-row');
+        const passwordSection = document.getElementById('passwordChangeForm');
+        const changePasswordBtn = document.getElementById('changePasswordBtn');
+        const saveProfileBtn = document.getElementById('saveProfileBtn');
+        const discardBtn = document.getElementById('discardProfileBtn');
+        const closeBtn = document.getElementById('closeProfileBtn');
+        
+        if (active) {
+            document.querySelector('.profile-image-section').style.display = 'none';
+            document.getElementById('profileName').closest('.form-group').style.display = 'none';
+            document.getElementById('profileAge').closest('.form-group').style.display = 'none';
+            document.getElementById('profileGender').closest('.form-group').style.display = 'none';
+            if (saveProfileBtn) saveProfileBtn.style.display = 'none';
+            if (discardBtn) discardBtn.style.display = 'none';
+            if (closeBtn) closeBtn.style.display = 'none';
+            passwordSection.style.display = 'block';
+            changePasswordBtn.style.display = 'none';
+            isPasswordModeActive = true;
         } else {
-            showToast(data.error || 'Failed to change password');
+            document.querySelector('.profile-image-section').style.display = 'flex';
+            document.getElementById('profileName').closest('.form-group').style.display = 'block';
+            document.getElementById('profileAge').closest('.form-group').style.display = 'block';
+            document.getElementById('profileGender').closest('.form-group').style.display = 'block';
+            updateDiscardButtonVisibility();
+            passwordSection.style.display = 'none';
+            changePasswordBtn.style.display = 'flex';
+            document.getElementById('oldPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            isPasswordModeActive = false;
         }
-    } catch(e) {
-        showToast('Network error. Please try again.');
-    } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Update Password';
     }
-}
 
-// Attach event listeners after DOM ready
-document.getElementById('changePasswordBtn')?.addEventListener('click', () => togglePasswordMode(true));
-document.getElementById('cancelPasswordBtn')?.addEventListener('click', () => togglePasswordMode(false));
-document.getElementById('savePasswordBtn')?.addEventListener('click', submitPasswordChange);
+    async function submitPasswordChange() {
+        const oldPass = document.getElementById('oldPassword').value.trim();
+        const newPass = document.getElementById('newPassword').value.trim();
+        const confirmPass = document.getElementById('confirmPassword').value.trim();
+        
+        if (!oldPass || !newPass || !confirmPass) {
+            showToast('Please fill in all password fields');
+            return;
+        }
+        if (newPass.length < 6) {
+            showToast('New password must be at least 6 characters');
+            return;
+        }
+        if (newPass !== confirmPass) {
+            showToast('New password and confirmation do not match');
+            return;
+        }
+        
+        const userConfirmed = confirm('Are you sure you want to change your password? You will need to log in again with the new password.');
+        if (!userConfirmed) return;
+        
+        const saveBtn = document.getElementById('savePasswordBtn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Updating...';
+        
+        try {
+            const res = await fetch('/api/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    old_password: oldPass,
+                    new_password: newPass
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('Password changed successfully. Please log in again.');
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } else {
+                showToast(data.error || 'Failed to change password');
+            }
+        } catch(e) {
+            showToast('Network error. Please try again.');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Update Password';
+        }
+    }
+
+    document.getElementById('changePasswordBtn')?.addEventListener('click', () => togglePasswordMode(true));
+    document.getElementById('cancelPasswordBtn')?.addEventListener('click', () => togglePasswordMode(false));
+    document.getElementById('savePasswordBtn')?.addEventListener('click', submitPasswordChange);
+
+    // ========== SPEECH RECOGNITION (VOICE INPUT) ==========
+    function initSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            console.warn('Speech recognition not supported');
+            const micBtn = document.getElementById('micBtn');
+            if (micBtn) {
+                micBtn.style.opacity = '0.5';
+                micBtn.title = 'Speech recognition not supported in this browser';
+                micBtn.disabled = true;
+            }
+            return;
+        }
+        
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;      // Stop automatically after a pause
+        recognition.interimResults = false;  // Only final result
+        recognition.lang = 'en-US';          // You can change or detect browser language
+        
+        recognition.onstart = function() {
+            isRecording = true;
+            const micBtn = document.getElementById('micBtn');
+            micBtn.classList.add('recording');
+            micBtn.title = 'Recording... Click to stop';
+            // Optionally show a small indicator near mic
+            showToast('Listening... speak now');
+        };
+        
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            if (transcript && transcript.trim()) {
+                const inputField = document.getElementById('userInput');
+                inputField.value = transcript.trim();
+                inputField.dispatchEvent(new Event('input')); // trigger resize
+                showToast(`Recognized: "${transcript.trim()}"`);
+            } else {
+                showToast('No speech detected');
+            }
+        };
+        
+        recognition.onerror = function(event) {
+            console.error('Speech recognition error:', event.error);
+            let message = 'Voice recognition error';
+            if (event.error === 'no-speech') message = 'No speech detected. Please try again.';
+            else if (event.error === 'audio-capture') message = 'No microphone found. Please check your mic.';
+            else if (event.error === 'not-allowed') message = 'Microphone access denied. Please allow mic access.';
+            showToast(message);
+            stopRecordingUI();
+        };
+        
+        recognition.onend = function() {
+            stopRecordingUI();
+        };
+    }
+    
+    function startSpeechRecognition() {
+        if (!recognition) {
+            showToast('Speech recognition not supported');
+            return;
+        }
+        if (isRecording) {
+            stopSpeechRecognition();
+            return;
+        }
+        try {
+            recognition.start();
+        } catch(e) {
+            console.error('Recognition start error:', e);
+            showToast('Could not start voice input. Try again.');
+        }
+    }
+    
+    function stopSpeechRecognition() {
+        if (recognition && isRecording) {
+            recognition.stop();
+        }
+        stopRecordingUI();
+    }
+    
+    function stopRecordingUI() {
+        isRecording = false;
+        const micBtn = document.getElementById('micBtn');
+        micBtn.classList.remove('recording');
+        micBtn.title = 'Voice input';
+    }
+    
+    document.getElementById('micBtn')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (isGeneratingResponse) {
+            showToast('Please wait for the current response to finish before using voice.');
+            return;
+        }
+        startSpeechRecognition();
+    });
 </script>
 </body>
 </html>
