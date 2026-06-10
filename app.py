@@ -300,36 +300,29 @@ def check_safety(user_input):
     return False, None
 
 def load_emotion_model():
-    """Load the Hugging Face emotion detection model (distilbert-base-uncased-emotion)"""
+    """Load a more accurate emotion model (cardiffnlp/twitter-roberta-base-emotion)"""
     global emotion_tokenizer, emotion_model, label_encoder
     
-    # Use a well-known emotion classification model from Hugging Face Hub
-    model_name = "bhadresh-savani/distilbert-base-uncased-emotion"
+    model_name = "cardiffnlp/twitter-roberta-base-emotion"
     
     try:
-        print(f"\n📦 Loading emotion model from Hugging Face: {model_name}...")
-        
-        # Load tokenizer and model from Hugging Face (no local_files_only)
+        print(f"\n📦 Loading emotion model: {model_name} ...")
         emotion_tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
         emotion_model = AutoModelForSequenceClassification.from_pretrained(model_name, trust_remote_code=True)
         emotion_model.to(device)
         emotion_model.eval()
         
-        # The model's label list is known (sadness, joy, love, anger, fear, surprise)
-        label_list = ['sadness', 'joy', 'love', 'anger', 'fear', 'surprise']
-        # Store as a simple list for index->label mapping (no need for sklearn LabelEncoder)
-        label_encoder = label_list
+        # This model's label order: 0=anger, 1=joy, 2=sadness, 3=fear, 4=love, 5=surprise
+        # We'll keep them as indices; mapping happens at inference.
+        label_encoder = ['anger', 'joy', 'sadness', 'fear', 'love', 'surprise']
         
-        print(f"✓ Emotion model loaded successfully from Hugging Face")
-        print(f"✓ Emotion labels: {label_list}")
+        print(f"✓ Emotion model loaded from {model_name}")
+        print(f"✓ Labels: {label_encoder}")
         return True
         
     except Exception as e:
-        print(f"⚠️ Error loading Hugging Face model: {e}")
-        print(f"   Falling back to keyword-based detection only.")
-        emotion_tokenizer = None
-        emotion_model = None
-        label_encoder = None
+        print(f"⚠️ Error loading model: {e}")
+        emotion_tokenizer = emotion_model = label_encoder = None
         return False
 
 def enhanced_keyword_detection(text):
@@ -493,127 +486,108 @@ def preprocess_text(text):
     
     return text
 
-def detect_emotion(text):
-    """Detect emotion with priority on keyword detection for accuracy"""
+def preprocess_for_emotion(text):
+    """Aggressive preprocessing for short/casual text"""
+    text = text.lower()
+    # Expand common contractions
+    contractions = {
+        r"\bim\b": "i am", r"\bi'm\b": "i am", r"\bhes\b": "he is",
+        r"\bshes\b": "she is", r"\bit's\b": "it is", r"\bthat's\b": "that is",
+        r"\bdont\b": "do not", r"\bdoesnt\b": "does not", r"\bwasnt\b": "was not",
+        r"\bwerent\b": "were not", r"\bcan't\b": "cannot", r"\bwon't\b": "will not"
+    }
+    for pattern, repl in contractions.items():
+        text = re.sub(pattern, repl, text)
     
-    # First, check for crisis
-    is_crisis, keyword = check_safety(text)
+    # Remove repeated punctuation and letters (e.g., "soooo happy" -> "so happy")
+    text = re.sub(r'([!?.]){2,}', r'\1', text)
+    text = re.sub(r'(.)\1{2,}', r'\1\1', text)   # "happpy" -> "happy"
+    
+    # Normalize whitespace
+    text = ' '.join(text.split())
+    return text
+
+def detect_emotion(text):
+    """High‑accuracy emotion detection (model + rules)"""
+    # Crisis first
+    is_crisis, _ = check_safety(text)
     if is_crisis:
         return 'crisis', 1.0
     
-    # Preprocess text
-    clean_text = preprocess_text(text)
+    clean_text = preprocess_for_emotion(text)
+    
+    # ----- Hard overrides for clear statements -----
     text_lower = clean_text.lower()
     
-    # PRIORITY 0: Check for positive affirmations FIRST (before anything else)
-    positive_affirmations = [
-        r'\bgood\b', r'\bgreat\b', r'\bfine\b', r'\bokay\b', r'\bok\b', r'\bhi\b',
-        r'\bhappy\b', r'\bglad\b', r'\bjoy\b', r'\bwonderful\b', r'\bawesome\b', r'\bgreeting\b',
-        r'\bdoing well\b', r'\bfeeling good\b', r"\bm good\b", r"\bm fine\b"
-    ]
+    # Explicit love / joy / sadness / anger / fear
+    if re.search(r'\b(i love|i adore|i care about|i\s+love\s+you)\b', text_lower):
+        return 'love', 0.98
+    if re.search(r'\b(i hate|i can\'t stand|i despise)\b', text_lower):
+        return 'angry', 0.97
+    if re.search(r'\b(i am (so )?happy|i feel (so )?happy|i\'m delighted)\b', text_lower):
+        return 'happy', 0.98
+    if re.search(r'\b(i am (so )?sad|i feel (so )?sad|i\'m (so )?unhappy)\b', text_lower):
+        return 'sad', 0.98
+    if re.search(r'\b(i am (so )?scared|i am afraid|i feel fear)\b', text_lower):
+        return 'fear', 0.97
     
-    for pattern in positive_affirmations:
-        if re.search(pattern, text_lower):
-            # Check if it's NOT negated
-            if not re.search(rf'not\s+{pattern}|n\'t\s+{pattern}', text_lower):
-                return 'happy', 0.95
-    
-    # Special case: "happy" detection - if user explicitly says "happy", it should be HAPPY
-    if re.search(r'\bhappy\b', text_lower) or re.search(r'\bglad\b', text_lower) or re.search(r'\bjoy\b', text_lower):
-        if 'sad' not in text_lower and 'unhappy' not in text_lower:
-            return 'happy', 0.95
-    
-    # Special case: "good" or similar short positive responses
-    if text_lower in ['good', 'great', 'fine', 'ok', 'okay', 'doing good', 'im good', "i'm good", 'feeling good']:
+    # Short positive/negative responses
+    short_pos = ['good', 'great', 'fine', 'ok', 'okay', 'im good', "i'm good", 'doing good', 'feeling good', 'happy']
+    if text_lower in short_pos:
         return 'happy', 0.95
-    
-    # Special case: "sad" detection
-    if re.search(r'\bsad\b', text_lower) or re.search(r'\bdepressed\b', text_lower):
+    short_neg = ['bad', 'sad', 'not good', 'unhappy', 'terrible', 'awful']
+    if text_lower in short_neg:
         return 'sad', 0.95
     
-    # Special case: "angry" detection
-    if re.search(r'\bangry\b', text_lower) or re.search(r'\bmad\b', text_lower):
-        return 'angry', 0.95
-    
-    # Special case: "anxious" detection
-    if re.search(r'\banxious\b', text_lower) or re.search(r'\bnervous\b', text_lower):
-        return 'anxious', 0.95
-    
-    # Special case: "love" detection
-    if re.search(r'\blove\b', text_lower) or re.search(r'\badore\b', text_lower):
-        return 'love', 0.95
-    
-    # PRIORITY 1: Use enhanced keyword detection (more reliable for specific emotions)
-    keyword_emotion, keyword_confidence = enhanced_keyword_detection(clean_text)
-    
-    # If keyword confidence is high (>0.7), use keyword detection
-    if keyword_confidence > 0.7:
-        return keyword_emotion, keyword_confidence
-    
-    # PRIORITY 2: Try model prediction if available
-    if emotion_tokenizer is not None and emotion_model is not None:
+    # ----- Model prediction (if available) -----
+    if emotion_tokenizer and emotion_model:
         try:
-            # Tokenize input
-            inputs = emotion_tokenizer(
-                clean_text,
-                return_tensors="pt",
-                truncation=True,
-                padding=True,
-                max_length=128
-            )
-            
-            # Move to device
+            inputs = emotion_tokenizer(clean_text, return_tensors="pt", truncation=True, max_length=128, padding=True)
             inputs = {k: v.to(device) for k, v in inputs.items()}
-            
-            # Get prediction
             with torch.no_grad():
                 outputs = emotion_model(**inputs)
-                probabilities = F.softmax(outputs.logits, dim=-1)
-                predicted_class = torch.argmax(probabilities, dim=-1).item()
-                model_confidence = probabilities[0][predicted_class].item()
+                probs = F.softmax(outputs.logits, dim=-1)
+                pred_idx = torch.argmax(probs, dim=-1).item()
+                conf = probs[0][pred_idx].item()
                 
-                # Get emotion label using the label list (label_encoder is now a list)
-                if label_encoder is not None and isinstance(label_encoder, list):
-                    model_emotion_raw = label_encoder[predicted_class]
+            # Map model index to our emotion label
+            model_label = label_encoder[pred_idx]   # 'anger', 'joy', 'sadness', 'fear', 'love', 'surprise'
+            mapping = {
+                'joy': 'happy',
+                'sadness': 'sad',
+                'anger': 'angry',
+                'fear': 'fear',
+                'love': 'love',
+                'surprise': 'surprise'
+            }
+            model_emotion = mapping.get(model_label, 'neutral')
+            
+            # If model is very confident (>0.8), trust it
+            if conf > 0.8:
+                return model_emotion, conf
+            # Otherwise combine with keyword rules
+            keyword_emo, keyword_conf = enhanced_keyword_detection(clean_text)
+            # Weighted average: 60% model, 40% keyword (only if keyword_conf > 0.5)
+            if keyword_conf > 0.5:
+                # Prefer model if they disagree and model confidence > 0.6
+                if model_emotion != keyword_emo and conf > 0.6:
+                    return model_emotion, conf
+                # Ensemble average confidence
+                blended_conf = (conf * 0.6 + keyword_conf * 0.4)
+                # If both agree on same emotion, great; else pick model (more reliable)
+                if model_emotion == keyword_emo:
+                    return model_emotion, blended_conf
                 else:
-                    model_emotion_raw = 'neutral'
+                    return model_emotion, conf
+            else:
+                return model_emotion, conf
                 
-                # Map Hugging Face model labels to your internal categories
-                emotion_mapping = {
-                    'joy': 'happy',
-                    'sadness': 'sad',
-                    'anger': 'angry',
-                    'fear': 'fear',
-                    'love': 'love',
-                    'surprise': 'surprise'
-                }
-                model_emotion = emotion_mapping.get(model_emotion_raw, 'neutral')
-            
-            # If model confidence is high and not conflicting with keyword detection
-            if model_confidence > 0.8:
-                # Check if model and keyword agree
-                if model_emotion == keyword_emotion:
-                    return model_emotion, model_confidence
-                else:
-                    # If they disagree, trust keyword detection if it has reasonable confidence
-                    if keyword_confidence > 0.5:
-                        return keyword_emotion, keyword_confidence
-                    else:
-                        return model_emotion, model_confidence
-            
-            # If model confidence is medium, blend with keyword
-            elif model_confidence > 0.6:
-                if keyword_confidence > model_confidence:
-                    return keyword_emotion, keyword_confidence
-                else:
-                    return model_emotion, model_confidence
-            
         except Exception as e:
-            print(f"Error in emotion detection: {e}")
-            return keyword_emotion, keyword_confidence
+            print(f"Model inference error: {e}")
+            # fall through to keyword detection
     
-    # PRIORITY 3: Fallback to keyword detection
-    return keyword_emotion, keyword_confidence
+    # ----- Fallback: enhanced keyword detection -----
+    return enhanced_keyword_detection(clean_text)
 
 def generate_response_with_gemini(user_input, emotion, confidence):
     """Generate response using Google's Gemini API"""
