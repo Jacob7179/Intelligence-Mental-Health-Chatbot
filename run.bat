@@ -1,31 +1,39 @@
 @echo off
 setlocal EnableDelayedExpansion
 
+cd /d "%~dp0"
+
 echo Checking for Python 3.11...
 
-:: Detect installed Python version
-set PY_VER=
 set PYTHON_EXE=
+set PY_VER=
 
-for /f "tokens=2 delims= " %%i in ('python --version 2^>nul') do (
-    set PY_VER=%%i
+:: First try Python Launcher
+py -3.11 --version >nul 2>&1
+if not errorlevel 1 (
+    set PYTHON_EXE=py -3.11
+    for /f "tokens=2 delims= " %%i in ('py -3.11 --version 2^>nul') do set PY_VER=%%i
+    echo Python !PY_VER! found using Python Launcher.
+    goto setup
 )
 
-:: Accept any Python 3.11.x version
+:: Then try normal python command, but ignore Microsoft Store alias failure
+for /f "tokens=2 delims= " %%i in ('python --version 2^>nul') do set PY_VER=%%i
+
 echo !PY_VER! | findstr /b "3.11." >nul
 if not errorlevel 1 (
-    echo Python !PY_VER! already installed.
     set PYTHON_EXE=python
+    echo Python !PY_VER! already installed.
     goto setup
 )
 
 echo Python 3.11 not found.
-echo Downloading installer...
+echo Downloading Python 3.11 installer...
 
-set PYTHON_URL=https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe
-set INSTALLER=%TEMP%\python-3.11.0-amd64.exe
+set PYTHON_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
+set INSTALLER=%TEMP%\python-3.11.9-amd64.exe
 
-powershell -Command "Invoke-WebRequest -Uri '%PYTHON_URL%' -OutFile '%INSTALLER%'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '%PYTHON_URL%' -OutFile '%INSTALLER%'"
 
 if not exist "%INSTALLER%" (
     echo Failed to download installer.
@@ -34,31 +42,45 @@ if not exist "%INSTALLER%" (
 )
 
 echo Installing Python silently...
+"%INSTALLER%" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1 Include_pip=1 Include_test=0
 
-start /wait "" "%INSTALLER%" /quiet InstallAllUsers=1 PrependPath=1 Include_test=0
+if errorlevel 1 (
+    echo Python installer failed.
+    pause
+    exit /b 1
+)
 
 echo Installation finished.
 
-:: Refresh PATH lookup
-timeout /t 5 >nul
+:: Directly use the per-user install path. This avoids Microsoft Store alias problems.
+set PYTHON_EXE=%LocalAppData%\Programs\Python\Python311\python.exe
 
-for /f "delims=" %%i in ('where python 2^>nul') do (
-    set PYTHON_EXE=%%i
-    goto found_python
+if not exist "%PYTHON_EXE%" (
+    echo Could not find Python at: %PYTHON_EXE%
+    echo Trying Python Launcher again...
+
+    py -3.11 --version >nul 2>&1
+    if not errorlevel 1 (
+        set PYTHON_EXE=py -3.11
+        goto setup
+    )
+
+    echo Python installation failed or PATH was not updated.
+    echo Please disable Python app execution aliases in Windows Settings.
+    pause
+    exit /b 1
 )
-
-echo Python installation failed.
-pause
-exit /b 1
-
-:found_python
 
 :setup
 
 echo.
+echo Using Python:
+%PYTHON_EXE% --version
+
+echo.
 echo Creating virtual environment...
 
-"%PYTHON_EXE%" -m venv venv
+%PYTHON_EXE% -m venv venv
 
 if errorlevel 1 (
     echo Failed to create virtual environment.
@@ -92,7 +114,7 @@ echo.
 echo Installing dependencies...
 
 if exist requirements.txt (
-    pip install -r requirements.txt
+    python -m pip install -r requirements.txt
 
     if errorlevel 1 (
         echo Failed to install requirements.
