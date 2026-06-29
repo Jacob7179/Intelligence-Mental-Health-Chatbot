@@ -30,8 +30,8 @@ if not errorlevel 1 (
 echo Python 3.11 not found.
 echo Downloading Python 3.11 installer...
 
-set PYTHON_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
-set INSTALLER=%TEMP%\python-3.11.9-amd64.exe
+set PYTHON_URL=https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe
+set INSTALLER=%TEMP%\python-3.11.0-amd64.exe
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '%PYTHON_URL%' -OutFile '%INSTALLER%'"
 
