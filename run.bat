@@ -78,15 +78,21 @@ echo Using Python:
 %PYTHON_EXE% --version
 
 echo.
-echo Creating virtual environment...
+echo Checking virtual environment...
 
-%PYTHON_EXE% -m venv venv
+if exist "venv\Scripts\python.exe" (
+    echo Existing virtual environment found. Reusing it.
+) else (
+    echo Creating virtual environment...
+    %PYTHON_EXE% -m venv venv
 
-if errorlevel 1 (
-    echo Failed to create virtual environment.
-    pause
-    exit /b 1
+    if errorlevel 1 (
+        echo Failed to create virtual environment.
+        pause
+        exit /b 1
+    )
 )
+
 
 echo.
 echo Activating virtual environment...
@@ -129,7 +135,7 @@ echo.
 echo Running application...
 
 if exist app.py (
-    python app.py
+    venv\Scripts\python.exe app.py
 ) else (
     echo app.py not found.
 )
